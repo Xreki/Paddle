@@ -15,9 +15,12 @@ limitations under the License. */
 #include <algorithm>
 #include <vector>
 #include "paddle/fluid/framework/mixed_vector.h"
+#include "paddle/fluid/memory/malloc.h"
+#include "paddle/fluid/memory/memcpy.h"
 #include "paddle/fluid/operators/math/concat_and_split.h"
 #include "paddle/fluid/platform/cuda_primitives.h"
 #include "paddle/fluid/platform/float16.h"
+#include "paddle/fluid/platform/profiler.h"
 
 namespace paddle {
 namespace operators {
@@ -195,8 +198,12 @@ class SplitFunctor<platform::CUDADeviceContext, T> {
                   const framework::Tensor& input,
                   const std::vector<const framework::Tensor*>& ref_inputs,
                   int axis, std::vector<framework::Tensor*>* outputs) {
+    const platform::DeviceContext* dev_ctx =
+        reinterpret_cast<const platform::DeviceContext*>(&context);
+    platform::RecordEvent record_event("SplitFunctor", dev_ctx);
+
     // TODO(zcd): Add input data validity checking
-    int o_num = outputs->size();
+    int num_outputs = outputs->size();
     int out_row = 1;
     auto dim_0 = ref_inputs[0]->dims();
     for (int i = 0; i < axis; ++i) {
@@ -204,30 +211,52 @@ class SplitFunctor<platform::CUDADeviceContext, T> {
     }
 
     int out0_col = ref_inputs[0]->numel() / out_row;
-    int in_col = 0, in_row = out_row;
-    bool sameShape = true;
+    int in_col = 0;
+    int in_row = out_row;
+    bool has_same_shape = true;
 
-    framework::Vector<int16_t> outputs_data(o_num * sizeof(T*) / 2);
-    framework::Vector<int> outputs_cols(o_num + 1);
-    T** outputs_ptr = reinterpret_cast<T**>(outputs_data.data());
+    size_t num_ints_of_addresses =
+        (num_outputs * sizeof(T*) + sizeof(int) - 1) / sizeof(int);
 
-    outputs_cols[0] = 0;
-    for (int i = 0; i < o_num; ++i) {
+    // Alloc CPU memory
+    std::vector<int> cpu_data(num_ints_of_addresses + num_outputs + 1);
+    T** cpu_outputs_addresses = reinterpret_cast<T**>(cpu_data.data());
+    int* cpu_output_cols = cpu_data.data() + num_ints_of_addresses;
+
+    cpu_output_cols[0] = 0;
+    for (int i = 0; i < num_outputs; ++i) {
       int t_col = ref_inputs.at(i)->numel() / out_row;
-      if (sameShape) {
-        if (t_col != out0_col) sameShape = false;
+      if (has_same_shape) {
+        if (t_col != out0_col) has_same_shape = false;
       }
       in_col += t_col;
-      outputs_cols[i + 1] = in_col;
+      cpu_output_cols[i + 1] = in_col;
+      // std::cout << "t_col: " << t_col << ", in_col: " << in_col << std::endl;
       if (outputs->at(i) != nullptr) {
-        outputs_ptr[i] = outputs->at(i)->data<T>();
+        cpu_output_addresses[i] = outputs->at(i)->data<T>();
       } else {
-        outputs_ptr[i] = nullptr;
+        cpu_output_addresses[i] = nullptr;
       }
     }
 
-    T** dev_out_gpu_data =
-        reinterpret_cast<T**>(outputs_data.CUDAMutableData(context.GetPlace()));
+    // Alloc GPU memory
+    platform::CUDAPlace place =
+        boost::get<platform::CUDAPlace>(context.GetPlace());
+    int gpu_data_size = has_same_shape
+                            ? num_ints_of_addresses
+                            : (num_ints_of_addresses + num_outputs + 1);
+    int* gpu_data = nullptr;
+    {
+      platform::RecordEvent record_event("SplitKernel_malloc", dev_ctx);
+      gpu_data =
+          static_cast<int*>(memory::Alloc(place, gpu_data_size * sizeof(int)));
+    }
+
+    {
+      platform::RecordEvent record_event("SplitKernel_memcpy", dev_ctx);
+      memory::Copy(place, gpu_data, platform::CPUPlace(), cpu_data.data(),
+                   gpu_data_size * sizeof(int), context.stream());
+    }
 
     // computation
     const int kThreadsPerBlock = 1024;
@@ -247,18 +276,24 @@ class SplitFunctor<platform::CUDADeviceContext, T> {
         std::min(max_blocks / grid_cols, std::max(out_row / block_rows, 1));
     dim3 grid_size = dim3(grid_cols, grid_rows, 1);
 
-    if (sameShape) {
+    T** gpu_output_addresses = reinterpret_cast<T**>(gpu_data);
+    if (has_same_shape) {
+      platform::RecordEvent record_event("SplitKernel_same", dev_ctx);
       SplitKernel<<<grid_size, block_size, 0, context.stream()>>>(
-          input.data<T>(), in_row, in_col, out0_col, dev_out_gpu_data);
+          input.data<T>(), in_row, in_col, out0_col, gpu_output_addresses);
     } else {
-      const int* dev_outs_col_data = outputs_cols.CUDAData(context.GetPlace());
+      platform::RecordEvent record_event("SplitKernel_nosame", dev_ctx);
+      const int* gpu_output_cols = gpu_data + num_ints_of_addresses;
       SplitKernel<<<grid_size, block_size, 0, context.stream()>>>(
-          input.data<T>(), in_row, in_col, dev_outs_col_data,
-          static_cast<int>(outputs_cols.size()), dev_out_gpu_data);
+          input.data<T>(), in_row, in_col, gpu_output_cols, num_outputs + 1,
+          gpu_output_addresses);
     }
-    // Wait() must be called because `outputs_data` may be destructed before
+
+    // Wait() must be called because `cpu_data` and `gpu_data` may be destructed
+    // before
     // kernel ends
     context.Wait();
+    memory::Free(place, gpu_data);
   }
 };
 
