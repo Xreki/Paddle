@@ -17,16 +17,36 @@ from __future__ import print_function
 import unittest
 import numpy as np
 from op_test import OpTest
+import paddle.fluid.profiler as profiler
+import os
+
+SIZE_X = int(os.getenv("SIZE_X"))
+SIZE_Y = int(os.getenv("SIZE_Y"))
+SIZE_Z = int(os.getenv("SIZE_Z"))
+AXIS = int(os.getenv("AXIS"))
 
 
 class TestSplitOp(OpTest):
     def setUp(self):
         self._set_op_type()
-        axis = 1
-        x = np.random.random((4, 5, 6)).astype('float32')
-        out = np.split(x, [2, 3], axis)
+
+        axis = AXIS
+
+        size_x = SIZE_X
+        size_y = SIZE_Y
+        size_z = SIZE_Z
+
+        print(size_x, size_y, size_z, axis)
+
+        if axis == 2:
+            x = np.random.random((size_z, size_y, size_x * 3)).astype('float32')
+            out = np.split(x, [size_x, 2 * size_x], axis)
+            self.attrs = {'axis': axis, 'sections': [size_x, size_x, size_x]}
+        elif axis == 0:
+            x = np.random.random((size_z * 3, size_y)).astype('float32')
+            out = np.split(x, [size_z, 2 * size_z], axis)
+            self.attrs = {'axis': axis, 'sections': [size_z, size_z, size_z]}
         self.inputs = {'X': x}
-        self.attrs = {'axis': axis, 'sections': [2, 1, 2]}
         self.outputs = {'Out': [('out%d' % i, out[i]) \
             for i in range(len(out))]}
 
@@ -35,14 +55,18 @@ class TestSplitOp(OpTest):
 
     def test_check_output(self):
         self.check_output()
+        with profiler.profiler("All", 'total', "split_profiler.log") as prof:
+            for iter in range(100):
+                self.check_output()
+        #print(self.inputs)
+        #print(self.outputs)
 
-    def test_check_grad(self):
-        self.check_grad(['X'], ['out0', 'out1', 'out2'])
+        #def test_check_grad(self):
+        #    self.check_grad(['X'], ['out0', 'out1', 'out2'])
 
-
-class TestSplitByrefOp(OpTest):
-    def _set_op_type(self):
-        self.op_type = "split_byref"
+        #class TestSplitByrefOp(OpTest):
+        #    def _set_op_type(self):
+        #        self.op_type = "split_byref"
 
 
 if __name__ == '__main__':

@@ -43,7 +43,7 @@ namespace detail {
 
 void* AlignedMalloc(size_t size) {
   void* p = nullptr;
-  size_t alignment = 32ul;
+  size_t alignment = 256ul;
 #ifdef PADDLE_WITH_MKLDNN
   // refer to https://github.com/01org/mkl-dnn/blob/master/include/mkldnn.hpp
   // memory alignment
@@ -109,7 +109,8 @@ void* GPUAllocator::Alloc(size_t* index, size_t size) {
     cudaSetDevice(gpu_id_);
   }
 
-  cudaError_t result = cudaMalloc(&p, size);
+  size_t act_size = ((size + 255) / 256 + 1) * 256;
+  cudaError_t result = cudaMalloc(&p, act_size);
 
   if (prev_id != gpu_id_) {
     cudaSetDevice(prev_id);

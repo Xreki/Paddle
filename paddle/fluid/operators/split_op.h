@@ -19,6 +19,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/operators/math/concat_and_split.h"
 #include "paddle/fluid/operators/strided_memcpy.h"
+#include "paddle/fluid/platform/profiler.h"
 
 namespace paddle {
 namespace operators {
@@ -27,6 +28,9 @@ template <typename DeviceContext, typename T>
 class SplitOpKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext& ctx) const override {
+    auto& dev_ctx = ctx.template device_context<DeviceContext>();
+    platform::RecordEvent record_event("SplitOpKernel", &dev_ctx);
+
     auto* in = ctx.Input<framework::Tensor>("X");
     auto outs = ctx.MultiOutput<framework::Tensor>("Out");
     int axis = ctx.Attr<int>("axis");
@@ -38,7 +42,6 @@ class SplitOpKernel : public framework::OpKernel<T> {
       shape_refer.emplace_back(outs[j]);
     }
 
-    auto& dev_ctx = ctx.template device_context<DeviceContext>();
     // Sometimes direct copies will be faster, this maybe need deeply analysis.
     if (axis == 0 && outs.size() < 10) {
       StridedMemcpyWithAxis0<T>(dev_ctx, *in, shape_refer, &outs);
