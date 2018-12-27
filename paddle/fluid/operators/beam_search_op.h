@@ -38,13 +38,12 @@ class BeamSearchOpKernel : public framework::OpKernel<T> {
     int end_id = context.Attr<int>("end_id");
     bool is_accumulated = context.Attr<bool>("is_accumulated");
 
-    auto selected_ids = context.Output<framework::LoDTensor>("selected_ids");
-    auto selected_scores =
+    auto* selected_ids = context.Output<framework::LoDTensor>("selected_ids");
+    auto* selected_scores =
         context.Output<framework::LoDTensor>("selected_scores");
-    auto parent_idx = context.Output<framework::LoDTensor>("parent_idx");
+    auto* parent_idx = context.Output<framework::Tensor>("parent_idx");
     PADDLE_ENFORCE_NOT_NULL(selected_ids);
     PADDLE_ENFORCE_NOT_NULL(selected_scores);
-    PADDLE_ENFORCE_NOT_NULL(parent_idx);
 
     math::BeamSearchFunctor<DeviceContext, T> alg;
     alg(context.template device_context<DeviceContext>(), pre_ids, pre_scores,

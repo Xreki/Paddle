@@ -108,7 +108,7 @@ class BeamSearchFunctor {
       const DeviceContext& context, const framework::LoDTensor* pre_ids,
       const framework::LoDTensor* pre_scores, const framework::LoDTensor* ids,
       const framework::LoDTensor* scores, framework::LoDTensor* selected_ids,
-      framework::LoDTensor* selected_scores, framework::LoDTensor* parent_idx,
+      framework::LoDTensor* selected_scores, framework::Tensor* parent_idx,
       size_t level, size_t beam_size, int end_id, bool is_accumulated);
 };
 

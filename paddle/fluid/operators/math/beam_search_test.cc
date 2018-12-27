@@ -93,28 +93,39 @@ void TestBeamSearch() {
 
   paddle::framework::LoDTensor selected_ids;
   paddle::framework::LoDTensor selected_scores;
+  paddle::framework::Tensor parent_idx;
 
   size_t level = 0;
   size_t beam_size = 2;
   int end_id = 0;
   paddle::operators::math::BeamSearchFunctor<DeviceContext, float> beamsearch;
   beamsearch(*context, &pre_ids, &pre_scores, &ids, &scores, &selected_ids,
-             &selected_scores, level, beam_size, end_id, true);
+             &selected_scores, &parent_idx, level, beam_size, end_id, true);
+
+  // LOG(INFO) << "parent_idx: " << parent_idx;
 
   ASSERT_EQ(selected_ids.lod(), selected_scores.lod());
 
   paddle::framework::LoDTensor cpu_selected_ids;
   paddle::framework::LoDTensor cpu_selected_scores;
+  paddle::framework::Tensor cpu_parent_idx;
   if (paddle::platform::is_cpu_place(*place)) {
     cpu_selected_ids = selected_ids;
     cpu_selected_scores = selected_scores;
+    cpu_parent_idx = parent_idx;
   } else {
     TensorCopySync(selected_ids, paddle::platform::CPUPlace(),
                    &cpu_selected_ids);
     TensorCopySync(selected_scores, paddle::platform::CPUPlace(),
                    &cpu_selected_scores);
+    TensorCopySync(parent_idx, paddle::platform::CPUPlace(), &cpu_parent_idx);
     cpu_selected_ids.set_lod(selected_ids.lod());
     cpu_selected_scores.set_lod(selected_scores.lod());
+  }
+
+  const int* cpu_parent_idx_data = cpu_parent_idx.data<int>();
+  for (int i = 0; i < cpu_parent_idx.numel(); ++i) {
+    LOG(INFO) << "i:" << i << ", " << cpu_parent_idx_data[i];
   }
 
   std::vector<int64_t> expected_ids({4, 5, 3, 8});
