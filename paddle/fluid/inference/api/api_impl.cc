@@ -109,6 +109,10 @@ bool NativePaddlePredictor::Init(
     return false;
   }
 
+  framework::BlockDesc *block = inference_program_->MutableBlock(1);
+  block->RemoveVar("beam_search_0.tmp_2");
+  inference_program_->Flush();
+
   ctx_ = executor_->Prepare(*inference_program_, 0);
   executor_->CreateVariables(*inference_program_,
                              sub_scope_ ? sub_scope_ : scope_.get(), 0);

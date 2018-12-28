@@ -171,7 +171,7 @@ __device__ __forceinline__ bool PruneEndBeams(Triple* top_beam_local,
 
 template <bool ReturnParentIdx = false>
 __device__ __forceinline__ void WriteBack(
-    int64_t* selected_ids, float* selected_scores, int* parent_idx,
+    int64_t* selected_ids, float* selected_scores, int64_t* parent_idx,
     size_t* selected_offsets, Triple* top_beam_local,
     const int seq_offset_start, const int seq_offset_end,
     const int selected_seq_start, const int selected_seq_length) {
@@ -186,7 +186,7 @@ __device__ __forceinline__ void WriteBack(
             static_cast<int64_t>(top_beam_local[local_index].id);
         selected_scores[global_index] = top_beam_local[local_index].score;
         if (ReturnParentIdx) {
-          parent_idx[global_index] = global_offset;
+          parent_idx[global_index] = static_cast<int64_t>(global_offset);
         }
         global_index++;
       }
@@ -197,7 +197,7 @@ __device__ __forceinline__ void WriteBack(
 
 template <int MaxLength, int NumThreadsPerSeq, int MaxSeqs>
 __device__ void BeamSearchDetails(
-    int64_t* selected_ids, float* selected_scores, int* parent_idx,
+    int64_t* selected_ids, float* selected_scores, int64_t* parent_idx,
     size_t* selected_offsets, const int64_t* pre_ids, const float* pre_scores,
     const int64_t* ids, const float* scores, const int seq_offset_start,
     const int seq_offset_end, const int seq_width, int beam_size, int end_id,
@@ -259,7 +259,7 @@ __device__ void BeamSearchDetails(
 
 template <int MaxLength, int NumThreadsPerSeq, int MaxSeqs>
 __global__ void BeamSearchKernel(int64_t* selected_ids, float* selected_scores,
-                                 int* parent_idx, size_t* selected_offsets,
+                                 int64_t* parent_idx, size_t* selected_offsets,
                                  const int64_t* pre_ids,
                                  const float* pre_scores, const int64_t* ids,
                                  const float* scores, const size_t* seq_offsets,
@@ -280,7 +280,7 @@ __global__ void BeamSearchKernel(int64_t* selected_ids, float* selected_scores,
 
 template <int MaxLength, int NumThreadsPerSeq>
 __global__ void BeamSearchKernelSingle(
-    int64_t* selected_ids, float* selected_scores, int* parent_idx,
+    int64_t* selected_ids, float* selected_scores, int64_t* parent_idx,
     size_t* selected_offsets, const int64_t* pre_ids, const float* pre_scores,
     const int64_t* ids, const float* scores, const int seq_length,
     const int seq_width, int beam_size, int end_id, bool is_accumulated) {
@@ -331,9 +331,9 @@ class BeamSearchFunctor<platform::CUDADeviceContext, T> {
         selected_ids->mutable_data<int64_t>(selected_dims, context.GetPlace());
     float* selected_scores_data =
         selected_scores->mutable_data<float>(selected_dims, context.GetPlace());
-    int* parent_idx_data =
+    int64_t* parent_idx_data =
         parent_idx
-            ? parent_idx->mutable_data<int>(
+            ? parent_idx->mutable_data<int64_t>(
                   {static_cast<int64_t>(num_seqs * beam_size)},
                   context.GetPlace())
             : nullptr;

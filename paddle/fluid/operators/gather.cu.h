@@ -27,12 +27,13 @@ using platform::DeviceContext;
        i += blockDim.x * gridDim.x)
 
 template <typename T>
-__global__ void GatherCUDAKernel(const T* params, const int* indices, T* output,
-                                 size_t index_size, size_t slice_size) {
+__global__ void GatherCUDAKernel(const T* params, const int64_t* indices,
+                                 T* output, size_t index_size,
+                                 size_t slice_size) {
   CUDA_1D_KERNEL_LOOP(i, index_size * slice_size) {
     int indices_i = i / slice_size;
     int slice_i = i - indices_i * slice_size;  // offset inside the slice
-    int gather_i = indices[indices_i];
+    int gather_i = static_cast<int>(indices[indices_i]);
     int params_i = gather_i * slice_size + slice_i;
     *(output + i) = *(params + params_i);
   }
@@ -64,7 +65,7 @@ void GPUGather(const platform::DeviceContext& ctx, const Tensor& src,
   for (int i = 1; i < src_dims.size(); ++i) slice_size *= src_dims[i];
 
   const T* p_src = src.data<T>();
-  const int* p_index = index.data<int>();
+  const int64_t* p_index = index.data<int64_t>();
   T* p_output = output->data<T>();
 
   int block = 512;
