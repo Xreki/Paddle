@@ -29,19 +29,23 @@ class BeamSearchOpMaker : public framework::OpProtoAndCheckerMaker {
              "(LoDTensor) The LoDTensor containing the selected ids at the "
              "previous step. It should be a tensor with shape (batch_size, 1) "
              "and lod `[[0, 1, ... , batch_size], [0, 1, ..., batch_size]]` at "
-             "thefirst step.");
+             "the first step.");
     AddInput("pre_scores",
              "(LoDTensor) The LoDTensor containing the accumulated "
              "scores corresponding to the selected ids at the previous step.");
     AddInput("ids",
              "(LoDTensor) The LoDTensor containing the candidates ids. Its "
-             "shape should be (batch_size * beam_size, K), where K supposed to "
-             "be beam_size.")
+             "shape should be (batch_size * beam_size, W). If not set, it will "
+             "be calculated out according to Input(scores) in this operator.")
         .AsDispensable();
     AddInput("scores",
-             "(LoDTensor) The LodTensor containing the accumulated scores "
-             "corresponding to Input(ids) and its shape is the same as the "
-             "shape of Input(ids).");
+             "(LoDTensor) The LoDTensor containing the current scores "
+             "corresponding to Input(ids). If Input(ids) is not nullptr, its "
+             "shape is the same as that of Input(ids)."
+             "If is_accumulated is true, Input(scores) is accumulated scores "
+             "and will be used derectedly. Else, each score will be "
+             "transformed to the log field and accumulate Input(pre_sores) "
+             "first.");
     AddOutput("selected_ids",
               "A LodTensor that stores the IDs selected by beam search.");
     AddOutput("selected_scores",
@@ -56,7 +60,9 @@ class BeamSearchOpMaker : public framework::OpProtoAndCheckerMaker {
     AddAttr<int>("beam_size", "beam size for beam search");
     AddAttr<int>("end_id",
                  "the token id which indicates the end of a sequence");
-    AddAttr<bool>("is_accumulated", "").SetDefault(true);
+    AddAttr<bool>("is_accumulated",
+                  "Whether the Input(scores) is accumulated scores.")
+        .SetDefault(true);
 
     AddComment(R"DOC(
 This operator does the search in beams for one time step. 
@@ -96,10 +102,19 @@ class BeamSearchOp : public framework::OperatorWithKernel {
  protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
-    framework::OpKernelType kt = framework::OpKernelType(
-        ctx.Input<framework::LoDTensor>("pre_ids")->type(),
-        ctx.device_context());
-    return kt;
+    auto *scores = ctx.Input<framework::LoDTensor>("scores");
+    size_t level = ctx.Attr<int>("level");
+    size_t batch_size = scores->lod()[level].size() - 1;
+    // The current CUDA kernel only support cases with batch_size < 4.
+    // Compute on CPU for cases with batch_size > 4.
+    if (batch_size <= 4) {
+      return framework::OpKernelType(
+          ctx.Input<framework::LoDTensor>("pre_ids")->type(), ctx.GetPlace());
+    } else {
+      return framework::OpKernelType(
+          ctx.Input<framework::LoDTensor>("pre_ids")->type(),
+          platform::CPUPlace());
+    }
   }
 };
 

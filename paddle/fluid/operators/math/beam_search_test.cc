@@ -102,8 +102,6 @@ void TestBeamSearch() {
   beamsearch(*context, &pre_ids, &pre_scores, &ids, &scores, &selected_ids,
              &selected_scores, &parent_idx, level, beam_size, end_id, true);
 
-  // LOG(INFO) << "parent_idx: " << parent_idx;
-
   ASSERT_EQ(selected_ids.lod(), selected_scores.lod());
 
   paddle::framework::LoDTensor cpu_selected_ids;
@@ -123,11 +121,6 @@ void TestBeamSearch() {
     cpu_selected_scores.set_lod(selected_scores.lod());
   }
 
-  const int* cpu_parent_idx_data = cpu_parent_idx.data<int>();
-  for (int i = 0; i < cpu_parent_idx.numel(); ++i) {
-    LOG(INFO) << "i:" << i << ", " << cpu_parent_idx_data[i];
-  }
-
   std::vector<int64_t> expected_ids({4, 5, 3, 8});
   std::vector<float> expected_scores({0.6f, 0.5f, 0.9f, 0.7f});
   for (int i = 0; i < 4; i++) {
@@ -140,13 +133,13 @@ void TestBeamSearch() {
 }
 
 TEST(BeamSearch, CPU) {
-  // It seems that beam_search_op has bugs.
   TestBeamSearch<paddle::platform::CPUDeviceContext,
                  paddle::platform::CPUPlace>();
 }
 
+#ifdef PADDLE_WITH_CUDA
 TEST(BeamSearch, GPU) {
-  // It seems that beam_search_op has bugs.
   TestBeamSearch<paddle::platform::CUDADeviceContext,
                  paddle::platform::CUDAPlace>();
 }
+#endif
