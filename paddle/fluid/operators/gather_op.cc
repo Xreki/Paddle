@@ -32,7 +32,9 @@ class GatherOp : public framework::OperatorWithKernel {
 
     auto index_dims = ctx->GetInputDim("Index");
     PADDLE_ENFORCE(index_dims.size() == 1 ||
-                   (index_dims.size() == 2 && index_dims[1] == 1));
+                       (index_dims.size() == 2 && index_dims[1] == 1),
+                   "The size of Input(Index)'s dimemsions should be either 1 "
+                   "or 2, in which case the last dimension should be 1.");
     int batch_size = ctx->GetInputDim("Index")[0];
     framework::DDim output_dims(ctx->GetInputDim("X"));
     output_dims[0] = batch_size;

@@ -27,8 +27,9 @@ import numpy
 __all__ = [
     'create_tensor', 'create_parameter', 'create_global_var', 'cast',
     'tensor_array_to_tensor', 'concat', 'sums', 'assign',
-    'fill_constant_batch_size_like', 'fill_constant', 'argmin', 'argmax',
-    'argsort', 'ones', 'zeros', 'reverse', 'has_inf', 'has_nan', 'isfinite'
+    'fill_constant_batch_size_like', 'fill_constant', 'fill_zeros_like',
+    'argmin', 'argmax', 'argsort', 'ones', 'zeros', 'reverse', 'has_inf',
+    'has_nan', 'isfinite'
 ]
 
 
@@ -382,6 +383,43 @@ def fill_constant(shape, dtype, value, force_cpu=False, out=None):
             'dtype': out.dtype,
             'value': float(value),
             'force_cpu': force_cpu or force_init_on_cpu()
+        },
+        stop_gradient=True)
+    out.stop_gradient = True
+    return out
+
+
+def fill_zeros_like(input, dtype, out=None):
+    """
+    This function creates a tensor with the same shape as the input tensor's, and initializes it with 0.
+
+    It also sets *stop_gradient* to True.
+
+    Args:
+        input(Variable): The input tensor. 
+        dtype(np.dtype|core.VarDesc.VarType|str): Data type of the output tensor.
+
+    Returns:
+        Variable: The tensor variable storing the output.
+
+    Examples:
+
+        .. code-block:: python
+
+            data = fluid.layers.fill_zeros_like(input=like, dtype='int64')
+
+    """
+    helper = LayerHelper("fill_zeros_like", **locals())
+    if out is None:
+        out = helper.create_variable_for_type_inference(dtype=dtype)
+    helper.append_op(
+        type='fill_zeros_like',
+        inputs={'X': input},
+        outputs={'Out': [out]},
+        attrs={
+            'shape': list(input.shape),
+            'dtype': dtype,
+            'value': float(0.0)
         },
         stop_gradient=True)
     out.stop_gradient = True
