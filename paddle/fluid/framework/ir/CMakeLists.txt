@@ -69,6 +69,7 @@ pass_library(identity_scale_op_clean_pass base)
 pass_library(sync_batch_norm_pass base)
 pass_library(runtime_context_cache_pass base)
 pass_library(expected_kernel_cache_pass base)
+pass_library(remove_reshape_pass base)
 pass_library(quant_conv2d_dequant_fuse_pass inference)
 pass_library(fillconstant_elementwisemul_fuse inference)
 
