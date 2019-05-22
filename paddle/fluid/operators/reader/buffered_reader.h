@@ -34,7 +34,8 @@ class BufferedReader : public framework::DecoratedReader {
 
  public:
   BufferedReader(const std::shared_ptr<framework::ReaderBase>& reader,
-                 const platform::Place& place, size_t buffer_size);
+                 const platform::Place& place, size_t buffer_size,
+                 std::vector<int> force_cpus = {});
 
   ~BufferedReader() override;
 
@@ -62,6 +63,7 @@ class BufferedReader : public framework::DecoratedReader {
   // buffers and prevent alloc every time.
   std::vector<TensorVec> cpu_buffer_;
   std::vector<TensorVec> gpu_buffer_;
+  std::vector<int> force_cpus_;
   size_t prev_pos_{-1UL};
 #ifdef PADDLE_WITH_CUDA
   cudaStream_t stream_;

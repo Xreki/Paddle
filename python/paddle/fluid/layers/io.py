@@ -484,6 +484,7 @@ def _py_reader(capacity,
                shapes,
                dtypes,
                lod_levels=None,
+               force_cpus=None,
                name=None,
                use_double_buffer=True,
                feed_list=None):
@@ -548,7 +549,8 @@ def _py_reader(capacity,
 
     reader = monkey_patch_reader_methods(main_prog_var)
     if use_double_buffer:
-        double_buffer_reader = double_buffer(reader, name=double_buffer_name)
+        double_buffer_reader = double_buffer(
+            reader, name=double_buffer_name, force_cpus=force_cpus)
         # we return a double buffer reader. However, the reset method comes from
         # py_reader.
         double_buffer_reader.reset = reader.reset
@@ -644,6 +646,7 @@ def py_reader(capacity,
               shapes,
               dtypes,
               lod_levels=None,
+              force_cpus=None,
               name=None,
               use_double_buffer=True):
     """
@@ -788,6 +791,7 @@ def py_reader(capacity,
         shapes=shapes,
         dtypes=dtypes,
         lod_levels=lod_levels,
+        force_cpus=force_cpus,
         name=name,
         use_double_buffer=use_double_buffer)
 
@@ -1036,7 +1040,7 @@ def batch(reader, batch_size):
         'create_batch_reader', reader, {'batch_size': int(batch_size)})
 
 
-def double_buffer(reader, place=None, name=None):
+def double_buffer(reader, place=None, name=None, force_cpus=None):
     """
     Wrap a double buffer reader. The data will copy to target place with a
     double buffer queue. If the target place is None, the place that executor
@@ -1063,6 +1067,8 @@ def double_buffer(reader, place=None, name=None):
     attrs = dict()
     if place is not None:
         attrs['place'] = str(place).upper()
+    if force_cpus is not None:
+        attrs['force_cpus'] = [int(v) for v in force_cpus]
     return __create_unshared_decorated_reader__(
         'create_double_buffer_reader', reader, attrs, name=name)
 

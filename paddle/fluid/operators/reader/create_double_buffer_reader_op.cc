@@ -18,6 +18,7 @@
 namespace paddle {
 namespace operators {
 namespace reader {
+
 class CreateDoubleBufferReaderOp : public framework::OperatorBase {
  public:
   using framework::OperatorBase::OperatorBase;
@@ -47,8 +48,9 @@ class CreateDoubleBufferReaderOp : public framework::OperatorBase {
       place = platform::CUDAPlace(static_cast<int>(num));
     }
 
-    out->Reset(framework::MakeDecoratedReader<BufferedReader>(underlying_reader,
-                                                              place, 2));
+    auto force_cpus = Attr<std::vector<int>>("force_cpus");
+    out->Reset(framework::MakeDecoratedReader<BufferedReader>(
+        underlying_reader, place, 2, force_cpus));
   }
 };
 
@@ -72,6 +74,12 @@ class CreateDoubleBufferReaderOpMaker : public DecoratedReaderMakerBase {
     AddAttr<std::string>("place", "The double buffer place")
         .SetDefault("AUTO")
         .InEnum({enum_range});
+    // Use std::vector<int> instead of std::vector<bool>, because
+    // std::vector<bool> cannot be casted correctly in pybind. The support of
+    // std::vector<bool> in pybind is different from other types, see
+    // https://github.com/pybind/pybind11/blob/master/docs/changelog.rst#v221-september-14-2017
+    AddAttr<std::vector<int>>("force_cpus", "Whether force the data on CPU.")
+        .SetDefault(std::vector<int>{});
   }
 };
 

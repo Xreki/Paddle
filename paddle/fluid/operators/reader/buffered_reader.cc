@@ -21,6 +21,7 @@
 namespace paddle {
 namespace operators {
 namespace reader {
+
 BufferedReader::~BufferedReader() {
   VLOG(1) << "~BufferedReader";
   reader_->Shutdown();
@@ -41,7 +42,8 @@ BufferedReader::~BufferedReader() {
 
 BufferedReader::BufferedReader(
     const std::shared_ptr<framework::ReaderBase> &reader,
-    const platform::Place &place, size_t buffer_size)
+    const platform::Place &place, size_t buffer_size,
+    std::vector<int> force_cpus)
     : framework::DecoratedReader(reader),
       thread_pool_(1),
       place_(place),
@@ -63,6 +65,7 @@ BufferedReader::BufferedReader(
 #endif
   cpu_buffer_.resize(buffer_size);
   gpu_buffer_.resize(buffer_size);
+  force_cpus_ = force_cpus;
   ReadTillBufferFullAsync();
 }
 
@@ -99,9 +102,15 @@ void BufferedReader::ReadAsync(size_t i) {
       std::vector<void *> gpu_ptrs;
       gpu_ptrs.reserve(cpu.size());
       for (size_t i = 0; i < cpu.size(); ++i) {
+        auto cpu_place = cpu[i].place();
         gpu[i].Resize(cpu[i].dims());
         gpu[i].set_layout(cpu[i].layout());
-        gpu_ptrs.emplace_back(gpu[i].mutable_data(place_, cpu[i].type()));
+        if (force_cpus_.size() > i && force_cpus_[i] &&
+            platform::is_cpu_place(cpu_place)) {
+          gpu_ptrs.emplace_back(gpu[i].mutable_data(cpu_place, cpu[i].type()));
+        } else {
+          gpu_ptrs.emplace_back(gpu[i].mutable_data(place_, cpu[i].type()));
+        }
       }
 
       // NOTE(zjl): cudaStreamWaitEvent() must be called after all
@@ -127,9 +136,15 @@ void BufferedReader::ReadAsync(size_t i) {
                        boost::get<platform::CUDAPlace>(cpu_place), cpu_ptr,
                        size, stream_);
         } else {
-          memory::Copy(boost::get<platform::CUDAPlace>(place_), gpu_ptr,
-                       boost::get<platform::CPUPlace>(cpu_place), cpu_ptr, size,
-                       stream_);
+          if (force_cpus_.size() > i && force_cpus_[i]) {
+            memory::Copy(boost::get<platform::CPUPlace>(cpu_place), gpu_ptr,
+                         boost::get<platform::CPUPlace>(cpu_place), cpu_ptr,
+                         size);
+          } else {
+            memory::Copy(boost::get<platform::CUDAPlace>(place_), gpu_ptr,
+                         boost::get<platform::CPUPlace>(cpu_place), cpu_ptr,
+                         size, stream_);
+          }
         }
         gpu[i].set_lod(cpu[i].lod());
       }
