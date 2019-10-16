@@ -76,7 +76,8 @@ class DataLoader(object):
                        capacity=None,
                        use_double_buffer=True,
                        iterable=True,
-                       return_list=False):
+                       return_list=False,
+                       force_cpus=None):
         """
         Create a DataLoader object for loading data from Python generator. 
         Data would be prefetched using Python thread and be pushed
@@ -254,8 +255,13 @@ class DataLoader(object):
                         assert label.shape == [BATCH_SIZE, 1]
                         assert relu.shape == [BATCH_SIZE, 784]
         """
-        return GeneratorLoader(feed_list, capacity, use_double_buffer, iterable,
-                               return_list)
+        return GeneratorLoader(
+            feed_list,
+            capacity,
+            use_double_buffer,
+            iterable,
+            return_list,
+            force_cpus=force_cpus)
 
     @staticmethod
     def from_dataset(dataset, places, drop_last=True):
@@ -301,11 +307,13 @@ class GeneratorLoader(DataLoaderBase):
                  capacity=None,
                  use_double_buffer=True,
                  iterable=True,
-                 return_list=False):
+                 return_list=False,
+                 force_cpus=None):
         self._tensor_reader = None
         self._places = None
         self._thread = None
         self._feed_list = feed_list
+        self._force_cpus = force_cpus
         if not capacity:
             raise ValueError("Please give value to capacity.")
         # force to use iterable mode under dygraph mode
@@ -396,7 +404,7 @@ class GeneratorLoader(DataLoaderBase):
         reader = monkey_patch_reader_methods(main_prog_var)
         if self._use_double_buffer:
             double_buffer_reader = double_buffer(
-                reader, name=double_buffer_name)
+                reader, name=double_buffer_name, force_cpu=self._force_cpus)
             # we return a double buffer reader. However, the reset method comes from
             # py_reader.
             double_buffer_reader.reset = reader.reset
