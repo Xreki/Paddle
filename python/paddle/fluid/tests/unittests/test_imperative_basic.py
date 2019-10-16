@@ -34,20 +34,6 @@ class MyLayer(fluid.Layer):
         return [x]
 
 
-class MyPyLayer(fluid.PyLayer):
-    def __init__(self):
-        super(MyPyLayer, self).__init__()
-
-    @staticmethod
-    def forward(inputs):
-        return np.tanh(inputs[0])
-
-    @staticmethod
-    def backward(inputs):
-        inp, out, dout = inputs
-        return np.array(dout) * (1 - np.square(np.array(out)))
-
-
 class MLP(fluid.Layer):
     def __init__(self, name_scope):
         super(MLP, self).__init__(name_scope)
@@ -81,7 +67,7 @@ class SimpleRNNCell(fluid.Layer):
         self._dtype = core.VarDesc.VarType.FP32
         self.param_attr = param_attr
 
-    def build_once(self, inputs, pre_hidden):
+    def _build_once(self, inputs, pre_hidden):
         i2h_param_shape = [self.step_input_size, self.hidden_size]
         h2h_param_shape = [self.hidden_size, self.hidden_size]
         h2o_param_shape = [self.output_size, self.hidden_size]
@@ -152,8 +138,7 @@ class SimpleRNNCell(fluid.Layer):
             type='reduce_sum',
             inputs={'X': softmax_out},
             outputs={'Out': reduce_out},
-            attrs={'dim': [],
-                   'keep_dim': False,
+            attrs={'keep_dim': False,
                    'reduce_all': True})
 
         return reduce_out, hidden
@@ -197,14 +182,18 @@ class TestImperative(unittest.TestCase):
         with fluid.dygraph.guard():
             inputs = []
             for _ in range(10):
-                inputs.append(fluid.dygraph.base.to_variable(x))
+                tmp = fluid.dygraph.base.to_variable(x)
+                tmp.stop_gradient = False
+                inputs.append(tmp)
             ret = fluid.layers.sums(inputs)
             loss = fluid.layers.reduce_sum(ret)
             loss.backward()
         with fluid.dygraph.guard():
             inputs2 = []
             for _ in range(10):
-                inputs2.append(fluid.dygraph.base.to_variable(x))
+                tmp = fluid.dygraph.base.to_variable(x)
+                tmp.stop_gradient = False
+                inputs2.append(tmp)
             ret2 = fluid.layers.sums(inputs2)
             loss2 = fluid.layers.reduce_sum(ret2)
             backward_strategy = fluid.dygraph.BackwardStrategy()
@@ -217,6 +206,59 @@ class TestImperative(unittest.TestCase):
             a = inputs2[0].gradient()
             self.assertTrue(np.allclose(inputs2[0].gradient(), x))
 
+    def test_empty_var(self):
+        with fluid.dygraph.guard():
+            cur_program = fluid.Program()
+            cur_block = cur_program.current_block()
+            new_variable = cur_block.create_var(
+                name="X", shape=[-1, 23, 48], dtype='float32')
+            try:
+                new_variable.numpy()
+            except Exception as e:
+                assert type(e) == ValueError
+
+            try:
+                new_variable.backward()
+            except Exception as e:
+                assert type(e) == ValueError
+
+            try:
+                new_variable.clear_gradient()
+            except Exception as e:
+                assert type(e) == ValueError
+
+    def test_empty_grad(self):
+        with fluid.dygraph.guard():
+            x = np.ones([2, 2], np.float32)
+            new_var = fluid.dygraph.base.to_variable(x)
+            try:
+                new_var.gradient()
+            except Exception as e:
+                assert type(e) == ValueError
+
+            try:
+                new_var.clear_gradient()
+            except Exception as e:
+                assert type(e) == ValueError
+
+        with fluid.dygraph.guard():
+            cur_program = fluid.Program()
+            cur_block = cur_program.current_block()
+            new_variable = cur_block.create_var(
+                name="X", shape=[-1, 23, 48], dtype='float32')
+            try:
+                new_variable.gradient()
+            except Exception as e:
+                assert type(e) == ValueError
+
+    def test_set_persistable(self):
+        with fluid.dygraph.guard():
+            x = np.ones([2, 2], np.float32)
+            new_var = fluid.dygraph.base.to_variable(x)
+            self.assertFalse(new_var.persistable)
+            new_var.persistable = True
+            self.assertFalse(new_var.persistable)
+
     def test_layer(self):
         with fluid.dygraph.guard():
             cl = core.Layer()
@@ -224,79 +266,11 @@ class TestImperative(unittest.TestCase):
             l = fluid.Layer("l")
             self.assertRaises(NotImplementedError, l.forward, [])
 
-    def test_pylayer_func_id(self):
-
-        with fluid.dygraph.guard():
-
-            class PyLayer1(fluid.PyLayer):
-                def __init__(self):
-                    super(PyLayer1, self).__init__()
-
-                @staticmethod
-                def forward(input):
-                    return input
-
-                @staticmethod
-                def backward(input):
-                    return input
-
-            class PyLayer2(fluid.PyLayer):
-                def __init__(self):
-                    super(PyLayer2, self).__init__()
-
-                @staticmethod
-                def forward(input):
-                    return input
-
-                @staticmethod
-                def backward(input):
-                    return input
-
-            py_layer_1 = PyLayer1()
-            py_layer_2 = PyLayer2()
-            py_layer_1(fluid.dygraph.base.to_variable(np.ones([2, 2])))
-            py_layer_2(fluid.dygraph.base.to_variable(np.ones([2, 2])))
-            id = py_layer_1.forward_id
-            self.assertGreater(id, 0)
-            self.assertEqual(py_layer_1.backward_id, id + 1)
-            self.assertEqual(py_layer_2.forward_id, id + 2)
-            self.assertEqual(py_layer_2.backward_id, id + 3)
-            py_layer_1(fluid.dygraph.base.to_variable(np.ones([2, 2])))
-            self.assertEqual(py_layer_1.forward_id, id)
-
-    def test_pylayer(self):
-        np_inp = np.ones([2, 2], np.float32)
-        with fluid.dygraph.guard():
-            my_py_layer = MyPyLayer()
-            var_inp = fluid.dygraph.base.to_variable(np_inp)
-            outs = my_py_layer(var_inp)
-            dy_out = np.sum(outs[0].numpy())
-            outs[0].backward()
-            dy_grad = var_inp.gradient()
-
-        with new_program_scope():
-            inp = fluid.layers.data(
-                name="inp", shape=[2, 2], append_batch_size=False)
-            # TODO(panyx0718): Paddle doesn't diff against data `inp`.
-            x1 = inp * 1
-            # TODO(panyx0718): If reduce_sum is skipped, the result is wrong.
-            x = fluid.layers.reduce_sum(fluid.layers.tanh(x1))
-            param_grads = fluid.backward.append_backward(
-                x, parameter_list=[x1.name])[0]
-            exe = fluid.Executor(fluid.CPUPlace(
-            ) if not core.is_compiled_with_cuda() else fluid.CUDAPlace(0))
-
-            static_out, static_grad = exe.run(
-                feed={inp.name: np_inp},
-                fetch_list=[x.name, param_grads[1].name])
-
-        self.assertTrue(np.allclose(dy_out, static_out))
-        self.assertTrue(np.allclose(dy_grad, static_grad))
-
     def test_layer_in_out(self):
         np_inp = np.array([1.0, 2.0, -1.0], dtype=np.float32)
         with fluid.dygraph.guard():
             var_inp = fluid.dygraph.base.to_variable(np_inp)
+            var_inp.stop_gradient = False
             l = MyLayer("my_layer")
             x = l(var_inp)[0]
             self.assertIsNotNone(x)
@@ -306,6 +280,7 @@ class TestImperative(unittest.TestCase):
 
         with fluid.dygraph.guard():
             var_inp2 = fluid.dygraph.base.to_variable(np_inp)
+            var_inp2.stop_gradient = False
             l2 = MyLayer("my_layer")
             x2 = l2(var_inp2)[0]
             self.assertIsNotNone(x2)
@@ -487,6 +462,13 @@ class TestImperative(unittest.TestCase):
         self.assertTrue(np.allclose(dy_grad_h2o2, static_grad_h2o))
         self.assertTrue(np.allclose(dy_grad_h2h2, static_grad_h2h))
         self.assertTrue(np.allclose(dy_grad_i2h2, static_grad_i2h))
+
+    def test_layer_attrs(self):
+        layer = fluid.dygraph.Layer("test")
+        layer.test_attr = 1
+        self.assertFalse(hasattr(layer, "whatever"))
+        self.assertTrue(hasattr(layer, "test_attr"))
+        self.assertEqual(layer.test_attr, 1)
 
 
 if __name__ == '__main__':

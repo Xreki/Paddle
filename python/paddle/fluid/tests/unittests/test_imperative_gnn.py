@@ -101,11 +101,11 @@ class TestDygraphGNN(unittest.TestCase):
             ) if not core.is_compiled_with_cuda() else fluid.CUDAPlace(0))
             exe.run(startup)
             static_loss = exe.run(feed={
-                'features': np.zeros(
+                'features': np.ones(
                     [1, 100, 50], dtype=np.float32),
-                'adj': np.zeros(
+                'adj': np.ones(
                     [1, 100, 100], dtype=np.float32),
-                'labels': np.zeros(
+                'labels': np.ones(
                     [100, 1], dtype=np.int64)
             },
                                   fetch_list=[loss])[0]
@@ -117,10 +117,10 @@ class TestDygraphGNN(unittest.TestCase):
             fluid.default_startup_program().random_seed = seed
             fluid.default_main_program().random_seed = seed
 
-            features = np.zeros([1, 100, 50], dtype=np.float32)
+            features = np.ones([1, 100, 50], dtype=np.float32)
             # Use selected rows when it's supported.
-            adj = np.zeros([1, 100, 100], dtype=np.float32)
-            labels = np.zeros([100, 1], dtype=np.int64)
+            adj = np.ones([1, 100, 100], dtype=np.float32)
+            labels = np.ones([100, 1], dtype=np.int64)
 
             model = GCN('test_gcn', 50)
             logits = model(to_variable(features), to_variable(adj))
@@ -130,17 +130,22 @@ class TestDygraphGNN(unittest.TestCase):
             loss = fluid.layers.softmax_with_cross_entropy(logits,
                                                            to_variable(labels))
             loss = fluid.layers.reduce_sum(loss)
+            loss.backward()
             adam = AdamOptimizer(learning_rate=1e-3)
+
             adam.minimize(loss)
+            model.clear_gradients()
+            loss_value = loss.numpy()
+            model_gc_weight_value = model.gc.weight.numpy()
 
         with fluid.dygraph.guard():
             fluid.default_startup_program().random_seed = seed
             fluid.default_main_program().random_seed = seed
 
-            features2 = np.zeros([1, 100, 50], dtype=np.float32)
+            features2 = np.ones([1, 100, 50], dtype=np.float32)
             # Use selected rows when it's supported.
-            adj2 = np.zeros([1, 100, 100], dtype=np.float32)
-            labels2 = np.zeros([100, 1], dtype=np.int64)
+            adj2 = np.ones([1, 100, 100], dtype=np.float32)
+            labels2 = np.ones([100, 1], dtype=np.int64)
 
             model2 = GCN('test_gcn', 50)
             logits2 = model2(to_variable(features2), to_variable(adj2))
@@ -150,14 +155,18 @@ class TestDygraphGNN(unittest.TestCase):
             loss2 = fluid.layers.softmax_with_cross_entropy(
                 logits2, to_variable(labels2))
             loss2 = fluid.layers.reduce_sum(loss2)
+            loss2.backward()
             adam2 = AdamOptimizer(learning_rate=1e-3)
             adam2.minimize(loss2)
+            model2.clear_gradients()
+            loss2_value = loss2.numpy()
+            model2_gc_weight_value = model2.gc.weight.numpy()
 
-        self.assertEqual(static_loss, loss.numpy())
-        self.assertTrue(np.allclose(static_weight, model.gc.weight.numpy()))
-        self.assertEqual(static_loss, loss2.numpy())
-        self.assertTrue(np.allclose(static_weight, model2.gc.weight.numpy()))
-        sys.stderr.write('%s %s\n' % (static_loss, loss.numpy()))
+        self.assertEqual(static_loss, loss_value)
+        self.assertTrue(np.allclose(static_weight, model_gc_weight_value))
+        self.assertEqual(static_loss, loss2_value)
+        self.assertTrue(np.allclose(static_weight, model2_gc_weight_value))
+        sys.stderr.write('%s %s\n' % (static_loss, loss_value))
 
 
 if __name__ == '__main__':
