@@ -14,9 +14,12 @@ limitations under the License. */
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <algorithm>
+#include <vector>
 
 #include "paddle/fluid/platform/cuda_primitives.h"
+#include "paddle/fluid/platform/device_context.h"
 
 namespace paddle {
 namespace platform {
@@ -43,6 +46,23 @@ inline GpuLaunchConfig getGpuLaunchConfig(
   GpuLaunchConfig config(threads, blocks);
 
   return config;
+}
+
+using GpuKernelHandler =
+    std::function<void(const int n, const void* in, void* out)>;
+void GpuLaunchKernel1D(const platform::CUDADeviceContext& context,
+                       const void* func, int n, void* in, void* out) {
+  std::vector<void*> args;
+  args.push_back(&n);
+  args.push_back(&in);
+  args.push_back(&out);
+
+  int num_threads = 1024;
+  int num_blocks = (n + num_threads - 1) / num_threads;
+
+  dim3 block_dim = dim3(num_threads, 1, 1);
+  dim3 grid_dim = dim3(num_blocks, 1, 1);
+  cudaLaunchKernel(func, grid_dim, block_dim, args.data(), 0, context.stream());
 }
 
 }  // namespace platform

@@ -16,6 +16,7 @@ limitations under the License. */
 #include <vector>
 
 #include "paddle/fluid/memory/memory.h"
+#include "paddle/fluid/platform/profiler.h"
 #ifdef PADDLE_WITH_CUDA
 #include "paddle/fluid/framework/rw_lock.h"
 #include "paddle/fluid/memory/allocation/cuda_device_context_allocator.h"
@@ -309,7 +310,10 @@ CUDADeviceContext::~CUDADeviceContext() {
 
 Place CUDADeviceContext::GetPlace() const { return place_; }
 
-void CUDADeviceContext::Wait() const { context()->Stream()->Wait(); }
+void CUDADeviceContext::Wait() const {
+  platform::RecordEvent record_event("Wait");
+  context()->Stream()->Wait();
+}
 
 int CUDADeviceContext::GetComputeCapability() const {
   return compute_capability_;
