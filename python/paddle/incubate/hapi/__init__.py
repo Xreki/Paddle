@@ -16,13 +16,20 @@ from . import logger
 from . import progressbar
 from . import callbacks
 from . import download
+
 from . import model
-from . import metrics
-from . import loss
+from .model import *
+
 from . import datasets
 from . import distributed
 from . import vision
 from . import text
+from . import utils
+
+from . import device
+from .device import *
+
+from .dygraph_layer_patch import monkey_patch_layer
 
 logger.setup_logger()
 
@@ -31,10 +38,9 @@ __all__ = [
     'datasets',
     'distributed',
     'download',
-    'metrics',
-    'loss',
     'vision',
     'text',
-]
+    'utils',
+] + model.__all__ + device.__all__
 
-__all__ += model.__all__
+monkey_patch_layer()

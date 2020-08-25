@@ -13,10 +13,9 @@
 # limitations under the License.
 
 import paddle.fluid as fluid
-from paddle.fluid.dygraph.nn import Conv2D, Pool2D, BatchNorm, Linear
+from paddle.nn import Conv2d, Pool2D, BatchNorm, Linear, ReLU
 from paddle.fluid.dygraph.container import Sequential
 
-from ...model import Model
 from ...download import get_weights_path_from_url
 
 __all__ = [
@@ -51,7 +50,7 @@ class Classifier(fluid.dygraph.Layer):
         return out
 
 
-class VGG(Model):
+class VGG(fluid.dygraph.Layer):
     """VGG model from
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
 
@@ -106,12 +105,11 @@ def make_layers(cfg, batch_norm=False):
             layers += [Pool2D(pool_size=2, pool_stride=2)]
         else:
             if batch_norm:
-                conv2d = Conv2D(in_channels, v, filter_size=3, padding=1)
-                layers += [conv2d, BatchNorm(v, act='relu')]
+                conv2d = Conv2d(in_channels, v, kernel_size=3, padding=1)
+                layers += [conv2d, BatchNorm(v), ReLU()]
             else:
-                conv2d = Conv2D(
-                    in_channels, v, filter_size=3, padding=1, act='relu')
-                layers += [conv2d]
+                conv2d = Conv2d(in_channels, v, kernel_size=3, padding=1)
+                layers += [conv2d, ReLU()]
             in_channels = v
     return Sequential(*layers)
 
@@ -144,7 +142,8 @@ def _vgg(arch, cfg, batch_norm, pretrained, **kwargs):
                                                 model_urls[arch][1])
         assert weight_path.endswith(
             '.pdparams'), "suffix of weight must be .pdparams"
-        model.load(weight_path)
+        param, _ = fluid.load_dygraph(weight_path)
+        model.load_dict(param)
 
     return model
 

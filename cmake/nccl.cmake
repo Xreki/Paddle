@@ -7,14 +7,13 @@ if(WIN32)
     return()
 endif()
 
-set(NCCL_ROOT "/usr" CACHE PATH "NCCL ROOT")
-find_path(NCCL_INCLUDE_DIR nccl.h
-    PATHS ${NCCL_ROOT} ${NCCL_ROOT}/include ${NCCL_ROOT}/local/include
-    $ENV{NCCL_ROOT} $ENV{NCCL_ROOT}/include $ENV{NCCL_ROOT}/local/include
-    NO_DEFAULT_PATH
-)
-
 if(WITH_NCCL)
+    set(NCCL_ROOT "/usr" CACHE PATH "NCCL ROOT")
+    find_path(NCCL_INCLUDE_DIR nccl.h
+        PATHS ${NCCL_ROOT} ${NCCL_ROOT}/include ${NCCL_ROOT}/local/include
+        $ENV{NCCL_ROOT} $ENV{NCCL_ROOT}/include $ENV{NCCL_ROOT}/local/include
+        NO_DEFAULT_PATH
+    )
     if(NOT NCCL_INCLUDE_DIR)
         message(FATAL_ERROR "Cannot find nccl.h. "
             "You can set WITH_NCCL=OFF if you don't want to use nccl, or install nccl with \"apt install\". "

@@ -29,6 +29,11 @@ limitations under the License. */
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/var_type_traits.h"
 #include "paddle/fluid/framework/variable.h"
+#ifdef PADDLE_WITH_MKLDNN
+#include "paddle/fluid/platform/mkldnn_helper.h"
+#endif
+
+DECLARE_bool(use_mkldnn);
 
 namespace paddle {
 namespace operators {
@@ -232,10 +237,15 @@ class RunProgramOpKernel : public framework::OpKernel<T> {
 
     auto exe_ctx = exe.Prepare(*program, 0, skip_vars);
 
-    // get scope and clear old vars
-    framework::Scope &scope = *(out_scope_vec->front());
-    auto local_vars = scope.LocalVarNames();
-    scope.EraseVars(local_vars);
+    // NOTE(Aurelius84): While training some models, forward can be called many
+    // times and then apply backpropagation all at once, such as Reinforcement
+    // Learning. Tensor data in multi-step training should be saved into single
+    // scope separately. Otherwise, the gradients can be miscalculated because
+    // always using the Tensor data of the last step in forward.
+    framework::Scope *global_inner_scope = out_scope_vec->front();
+    VLOG(2) << "The number of sub scopes before forward: "
+            << out_scope_vec->front()->kids().size();
+    framework::Scope &scope = global_inner_scope->NewScope();
 
     // share input_vars & parameters into scope
     details::ShareVarsIntoScope(input_vars, input_var_names, &scope);
@@ -251,6 +261,15 @@ class RunProgramOpKernel : public framework::OpKernel<T> {
 
     // Debug info: scope info when run end
     VLOG(3) << framework::GenScopeTreeDebugInfo(out_scope_vec->front());
+    // Step 5. Drop all children scopes while testing.
+    if (is_test) {
+      out_scope_vec->front()->DropKids();
+    }
+    VLOG(2) << "The number of sub scopes after forward: "
+            << out_scope_vec->front()->kids().size();
+#ifdef PADDLE_WITH_MKLDNN
+    if (FLAGS_use_mkldnn) DontClearMKLDNNCache(ctx.GetPlace());
+#endif
   }
 };
 
@@ -285,8 +304,8 @@ class RunProgramGradOpKernel : public framework::OpKernel<T> {
 
     auto orig_end_op_index = ctx.Attr<int64_t>("end_op_index");
     // NOTE: skip `shape` and `fill_constant` op created by
-    // fluid.backward.gradients,
-    // one forward output will generate one `shape` and `fill_constant`
+    // fluid.backward.gradients, one forward output will generate one `shape`
+    // and `fill_constant`
     int64_t start_op_index = orig_end_op_index + (output_grad_vars.size() * 2);
     int64_t end_op_index = block->OpSize();
 
@@ -295,7 +314,16 @@ class RunProgramGradOpKernel : public framework::OpKernel<T> {
         out_scope_vec->size(), 1,
         platform::errors::InvalidArgument(
             "The OutScope of RunProgramGradOp should only hold one scope."));
-    auto &scope = *(out_scope_vec->front());
+
+    framework::Scope *global_inner_scope = out_scope_vec->front();
+    auto sub_scope_num = global_inner_scope->kids().size();
+    VLOG(2) << "The number of sub scopes before backward: " << sub_scope_num;
+    PADDLE_ENFORCE_GT(sub_scope_num, 0,
+                      platform::errors::InvalidArgument(
+                          "The OutScope of RunProgramGradOp should hold at "
+                          "least one sub scope."));
+
+    auto &scope = *(global_inner_scope->kids().front());
 
     // Step 2. prepare executor and scope
     framework::Executor exe(ctx.GetPlace());
@@ -324,6 +352,11 @@ class RunProgramGradOpKernel : public framework::OpKernel<T> {
     // Step 4. get outputs
     details::ShareVarsFromScope(input_grad_vars, input_grad_var_names, &scope);
     details::ShareVarsFromScope(param_grad_vars, param_grad_names, &scope);
+
+    // Step5. drop current scope
+    global_inner_scope->DeleteScope(&scope);
+    VLOG(2) << "The number of sub scopes after backward: "
+            << global_inner_scope->kids().size();
   }
 };
 
