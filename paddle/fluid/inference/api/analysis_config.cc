@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/framework/lod_tensor.h"
-#include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/inference/api/paddle_analysis_config.h"
-#include "paddle/fluid/inference/api/paddle_inference_api.h"
 #include "paddle/fluid/inference/api/paddle_pass_builder.h"
+#include "paddle/fluid/platform/cpu_info.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/platform/gpu_info.h"
 
 namespace paddle {
+struct MkldnnQuantizerConfig;
+
 extern const std::vector<std::string> kTRTSubgraphPasses;
 extern const std::vector<std::string> kLiteSubgraphPasses;
 
@@ -103,8 +103,8 @@ AnalysisConfig::AnalysisConfig(const AnalysisConfig &other) {
                                   // params_file_ fields.
 
   CP_MEMBER(opt_cache_dir_);
-  prog_file_ = std::move(other.prog_file_);
-  params_file_ = std::move(other.params_file_);
+  CP_MEMBER(prog_file_);
+  CP_MEMBER(params_file_);
 
   CP_MEMBER(use_fc_padding_);
   // GPU related.
@@ -126,6 +126,9 @@ AnalysisConfig::AnalysisConfig(const AnalysisConfig &other) {
   CP_MEMBER(use_mkldnn_);
   CP_MEMBER(mkldnn_enabled_op_types_);
   CP_MEMBER(mkldnn_cache_capacity_);
+  // Bfloat16 related.
+  CP_MEMBER(use_mkldnn_bfloat16_);
+  CP_MEMBER(bfloat16_enabled_op_types_);
   // Quantization related.
   CP_MEMBER(use_mkldnn_quantizer_);
   CP_MEMBER(mkldnn_quantizer_config_);
@@ -218,9 +221,26 @@ void AnalysisConfig::EnableMkldnnQuantizer() {
   Update();
 }
 
+void AnalysisConfig::EnableMkldnnBfloat16() {
+#ifdef PADDLE_WITH_MKLDNN
+  if (platform::MayIUse(platform::cpu_isa_t::avx512_core)) {
+    use_mkldnn_bfloat16_ = true;
+  } else {
+    LOG(INFO) << "CPU does not support BFLOAT16 calculations";
+    use_mkldnn_bfloat16_ = false;
+  }
+#else
+  LOG(ERROR) << "Please compile with MKLDNN first to use MkldnnBfloat16";
+  use_mkldnn_bfloat16_ = false;
+#endif
+
+  Update();
+}
+
 MkldnnQuantizerConfig *AnalysisConfig::mkldnn_quantizer_config() const {
   PADDLE_ENFORCE_NOT_NULL(mkldnn_quantizer_config_,
-                          "MkldnnQuantizer was not enabled yet.");
+                          platform::errors::PreconditionNotMet(
+                              "MkldnnQuantizer was not enabled yet."));
   return mkldnn_quantizer_config_.get();
 }
 
@@ -331,6 +351,12 @@ void AnalysisConfig::Update() {
 #endif
   }
 
+  if (use_mkldnn_bfloat16_) {
+#ifdef PADDLE_WITH_MKLDNN
+    pass_builder()->EnableMkldnnBfloat16();
+#endif
+  }
+
 #ifdef PADDLE_WITH_MKLDNN
   // Do not optimize when mkldnn is on
   if (enable_memory_optim_ && !use_mkldnn_) {
@@ -355,7 +381,7 @@ void AnalysisConfig::Update() {
   }
 
   if (use_xpu_) {
-#ifndef PADDLE_WITH_XPU
+#ifndef LITE_SUBGRAPH_WITH_XPU
     PADDLE_THROW(platform::errors::Unavailable(
         "You tried to use an XPU device, but Paddle was not compiled "
         "with XPU-runtime."));
@@ -399,6 +425,9 @@ std::string AnalysisConfig::SerializeInfoCache() {
   ss << ";";
 
   ss << use_mkldnn_quantizer_;
+  ss << use_mkldnn_bfloat16_;
+  for (auto &item : bfloat16_enabled_op_types_) ss << item;
+  ss << ";";
   ss << model_from_memory_;
 
   ss << with_profile_;

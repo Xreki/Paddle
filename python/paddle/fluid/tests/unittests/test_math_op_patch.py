@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
+from __future__ import print_function, division
 
 import unittest
 from decorator_helper import prog_scope
+import paddle
 import paddle.fluid as fluid
 import numpy
 
 
 class TestMathOpPatches(unittest.TestCase):
+    def setUp(self):
+        paddle.enable_static()
+
     @prog_scope()
     def test_add_scalar(self):
         a = fluid.layers.data(name="a", shape=[1])
@@ -189,16 +193,16 @@ class TestMathOpPatches(unittest.TestCase):
     @prog_scope()
     def test_integer_div(self):
         a = fluid.layers.data(name="a", shape=[1], dtype='int64')
-        b = a / 2
+        b = a / 7
         place = fluid.CPUPlace()
         exe = fluid.Executor(place)
-        a_np = numpy.array([3, 4, 10, 14, 9, 18])
+        a_np = numpy.array([3, 4, 10, 14, 9, 18]).astype('int64')
         b_np, = exe.run(fluid.default_main_program(),
                         feed={"a": a_np},
                         fetch_list=[b])
-        # for paddle2.0, use true_divide
-        b_np_actual = (a_np / 2.0)
-        self.assertTrue(numpy.array_equal(b_np, b_np_actual))
+
+        b_np_actual = (a_np / 7).astype('float32')
+        self.assertTrue(numpy.allclose(b_np, b_np_actual))
 
     @prog_scope()
     def test_equal(self):

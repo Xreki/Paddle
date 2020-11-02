@@ -22,8 +22,8 @@ class TestAdamWOp(unittest.TestCase):
     def test_adamw_op_dygraph(self):
         paddle.disable_static()
         value = np.arange(26).reshape(2, 13).astype("float32")
-        a = paddle.to_variable(value)
-        linear = paddle.nn.Linear(13, 5, dtype="float32")
+        a = paddle.to_tensor(value)
+        linear = paddle.nn.Linear(13, 5)
         adam = paddle.optimizer.AdamW(
             learning_rate=0.01,
             parameters=linear.parameters(),
@@ -37,8 +37,8 @@ class TestAdamWOp(unittest.TestCase):
     def test_adamw_op_coverage(self):
         paddle.disable_static()
         value = np.arange(26).reshape(2, 13).astype("float32")
-        a = paddle.to_variable(value)
-        linear = paddle.nn.Linear(13, 5, dtype="float32")
+        a = paddle.to_tensor(value)
+        linear = paddle.nn.Linear(13, 5)
         adam = paddle.optimizer.AdamW(
             learning_rate=0.0,
             parameters=linear.parameters(),
@@ -47,6 +47,7 @@ class TestAdamWOp(unittest.TestCase):
         assert (adam.__str__() is not None)
 
     def test_adamw_op(self):
+        paddle.enable_static()
         place = fluid.CPUPlace()
         shape = [2, 3, 8, 8]
         exe = fluid.Executor(place)
@@ -75,6 +76,36 @@ class TestAdamWOp(unittest.TestCase):
         data_np = np.random.random(shape).astype('float32')
         rets = exe.run(train_prog, feed={"data": data_np}, fetch_list=[loss])
         assert rets[0] is not None
+        paddle.disable_static()
+
+    def test_adamw_op_invalid_input(self):
+        paddle.disable_static()
+        linear = paddle.nn.Linear(10, 10)
+        with self.assertRaises(ValueError):
+            adam = paddle.optimizer.AdamW(
+                0.1, beta1=-1, parameters=linear.parameters())
+        with self.assertRaises(ValueError):
+            adam = paddle.optimizer.AdamW(
+                0.1, beta2=-1, parameters=linear.parameters())
+        with self.assertRaises(ValueError):
+            adam = paddle.optimizer.AdamW(
+                0.1, epsilon=-1, parameters=linear.parameters())
+
+    def test_adamw_lr_decay(self):
+        paddle.disable_static()
+        value = np.arange(26).reshape(2, 13).astype("float32")
+        a = paddle.to_tensor(value)
+        linear = paddle.nn.Linear(13, 5)
+        adam = paddle.optimizer.AdamW(
+            learning_rate=paddle.optimizer.lr.NoamDecay(
+                d_model=512, warmup_steps=4000),
+            parameters=linear.parameters(),
+            apply_decay_param_fun=lambda name: True,
+            weight_decay=0.01)
+        out = linear(a)
+        out.backward()
+        adam.step()
+        adam.clear_gradients()
 
 
 if __name__ == "__main__":

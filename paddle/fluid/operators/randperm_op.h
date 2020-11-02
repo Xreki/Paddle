@@ -19,6 +19,7 @@ limitations under the License. */
 #include <ctime>
 #include <string>
 #include <vector>
+
 #include "paddle/fluid/framework/generator.h"
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/tensor_util.h"
@@ -29,20 +30,12 @@ namespace operators {
 
 template <typename T>
 static inline void random_permate(T* data_ptr, int num, unsigned int seed) {
+  auto engine = framework::GetCPURandomEngine(seed);
   for (int i = 0; i < num; ++i) {
     data_ptr[i] = static_cast<T>(i);
   }
-  if (framework::Generator::GetInstance()->is_init_py) {
-    std::shuffle(data_ptr, data_ptr + num,
-                 framework::Generator::GetInstance()->GetCPUEngine());
 
-  } else {
-    if (seed == 0) {
-      seed = std::random_device()();
-    }
-    std::srand(seed);
-    std::random_shuffle(data_ptr, data_ptr + num);
-  }
+  std::shuffle(data_ptr, data_ptr + num, *engine);
 }
 
 template <typename DeviceContext, typename T>
@@ -64,7 +57,7 @@ class RandpermKernel : public framework::OpKernel<T> {
       tmp_tensor.Resize(framework::make_ddim({n}));
       T* tmp_data = tmp_tensor.mutable_data<T>(platform::CPUPlace());
       random_permate<T>(tmp_data, n, seed);
-      framework::TensorCopy(tmp_tensor, platform::CUDAPlace(), out_tensor);
+      framework::TensorCopy(tmp_tensor, ctx.GetPlace(), out_tensor);
     }
   }
 };

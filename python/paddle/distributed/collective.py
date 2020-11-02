@@ -36,7 +36,37 @@ __all__ = [
 
 
 class ReduceOp:
-    """Reduce Operation"""
+    """
+    Specify the type of operation used for element-wise reductions.
+    It should be one of the following values:
+
+        ReduceOp.SUM
+
+        ReduceOp.MAX
+
+        ReduceOp.MIN
+
+        ReduceOp.PROD
+
+    Examples:
+        .. code-block:: python
+
+            import numpy as np
+            import paddle
+            from paddle.distributed import ReduceOp
+            from paddle.distributed import init_parallel_env
+
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data = np.array([[4, 5, 6], [4, 5, 6]])
+            else:
+                np_data = np.array([[1, 2, 3], [1, 2, 3]])
+            data = paddle.to_tensor(np_data)
+            paddle.distributed.all_reduce(data, op=ReduceOp.SUM)
+            out = data.numpy()
+            # [[5, 7, 9], [5, 7, 9]]
+    """
     SUM = 0
     MAX = 1
     MIN = 2
@@ -73,20 +103,21 @@ def broadcast(tensor, src, group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        import paddle.prepare_context as prepare_context
+            import numpy as np
+            import paddle
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        if paddle.ParallelEnv().local_rank == 0:
-            np_data = np.array([[4, 5, 6], [4, 5, 6]])
-        else:
-            np_data = np.array([[1, 2, 3], [1, 2, 3]])
-        data = paddle.to_tensor(np_data)
-        paddle.distributed.broadcast(data, 1)
-        out = data.numpy()
-        # [[1, 2, 3], [1, 2, 3]]
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data = np.array([[4, 5, 6], [4, 5, 6]])
+            else:
+                np_data = np.array([[1, 2, 3], [1, 2, 3]])
+            data = paddle.to_tensor(np_data)
+            paddle.distributed.broadcast(data, 1)
+            out = data.numpy()
+            # [[1, 2, 3], [1, 2, 3]]
     """
     if in_dygraph_mode():
         return core.ops.c_broadcast(tensor, tensor, 'root', src,
@@ -129,21 +160,22 @@ def all_reduce(tensor, op=ReduceOp.SUM, group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        from paddle.distributed import ReduceOp
-        import paddle.prepare_context as prepare_context
+            import numpy as np
+            import paddle
+            from paddle.distributed import ReduceOp
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        if paddle.ParallelEnv().local_rank == 0:
-            np_data = np.array([[4, 5, 6], [4, 5, 6]])
-        else:
-            np_data = np.array([[1, 2, 3], [1, 2, 3]])
-        data = paddle.to_tensor(np_data)
-        paddle.distributed.all_reduce(data)
-        out = data.numpy()
-        # [[5, 7, 9], [5, 7, 9]]
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data = np.array([[4, 5, 6], [4, 5, 6]])
+            else:
+                np_data = np.array([[1, 2, 3], [1, 2, 3]])
+            data = paddle.to_tensor(np_data)
+            paddle.distributed.all_reduce(data)
+            out = data.numpy()
+            # [[5, 7, 9], [5, 7, 9]]
     """
     if in_dygraph_mode():
         if op == ReduceOp.SUM:
@@ -204,20 +236,21 @@ def reduce(tensor, dst, op=ReduceOp.SUM, group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        import paddle.prepare_context as prepare_context
+            import numpy as np
+            import paddle
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        if paddle.ParallelEnv().local_rank == 0:
-            np_data = np.array([[4, 5, 6], [4, 5, 6]])
-        else:
-            np_data = np.array([[1, 2, 3], [1, 2, 3]])
-        data = paddle.to_tensor(np_data)
-        paddle.distributed.reduce(data, 0)
-        out = data.numpy()
-        # [[5, 7, 9], [5, 7, 9]]
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data = np.array([[4, 5, 6], [4, 5, 6]])
+            else:
+                np_data = np.array([[1, 2, 3], [1, 2, 3]])
+            data = paddle.to_tensor(np_data)
+            paddle.distributed.reduce(data, 0)
+            out = data.numpy()
+            # [[5, 7, 9], [5, 7, 9]]
     """
     if in_dygraph_mode():
         if op == ReduceOp.SUM:
@@ -286,25 +319,26 @@ def all_gather(tensor_list, tensor, group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        import paddle.prepare_context as prepare_context
+            import numpy as np
+            import paddle
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        tensor_list = []
-        if paddle.ParallelEnv().local_rank == 0:
-            np_data1 = np.array([[4, 5, 6], [4, 5, 6]])
-            np_data2 = np.array([[4, 5, 6], [4, 5, 6]])
-            data1 = paddle.to_tensor(np_data1)
-            data2 = paddle.to_tensor(np_data2)
-            paddle.distributed.all_gather(tensor_list, data1)
-        else:
-            np_data1 = np.array([[1, 2, 3], [1, 2, 3]])
-            np_data2 = np.array([[1, 2, 3], [1, 2, 3]])
-            data1 = paddle.to_tensor(np_data1)
-            data2 = paddle.to_tensor(np_data2)
-            out = paddle.distributed.all_gather(tensor_list, data2)
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            tensor_list = []
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data1 = np.array([[4, 5, 6], [4, 5, 6]])
+                np_data2 = np.array([[4, 5, 6], [4, 5, 6]])
+                data1 = paddle.to_tensor(np_data1)
+                data2 = paddle.to_tensor(np_data2)
+                paddle.distributed.all_gather(tensor_list, data1)
+            else:
+                np_data1 = np.array([[1, 2, 3], [1, 2, 3]])
+                np_data2 = np.array([[1, 2, 3], [1, 2, 3]])
+                data1 = paddle.to_tensor(np_data1)
+                data2 = paddle.to_tensor(np_data2)
+                paddle.distributed.all_gather(tensor_list, data2)
     """
     op_type = 'c_allgather'
     helper = LayerHelper(op_type, **locals())
@@ -359,25 +393,26 @@ def scatter(tensor, tensor_list=None, src=0, group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        import paddle.prepare_context as prepare_context
+            import numpy as np
+            import paddle
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        if paddle.ParallelEnv().local_rank == 0:
-            np_data1 = np.array([7, 8, 9])
-            np_data2 = np.array([10, 11, 12])
-        else:
-            np_data1 = np.array([1, 2, 3])
-            np_data2 = np.array([4, 5, 6])
-        data1 = paddle.to_tensor(np_data1)
-        data2 = paddle.to_tensor(np_data2)
-        if paddle.ParallelEnv().local_rank == 0:
-            paddle.distributed.scatter(data1, src=1)
-        else:
-            paddle.distributed.scatter(data1, tensor_list=[data1, data2], src=1)
-        out = data1.numpy()
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data1 = np.array([7, 8, 9])
+                np_data2 = np.array([10, 11, 12])
+            else:
+                np_data1 = np.array([1, 2, 3])
+                np_data2 = np.array([4, 5, 6])
+            data1 = paddle.to_tensor(np_data1)
+            data2 = paddle.to_tensor(np_data2)
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                paddle.distributed.scatter(data1, src=1)
+            else:
+                paddle.distributed.scatter(data1, tensor_list=[data1, data2], src=1)
+            out = data1.numpy()
     """
     op_type = 'c_scatter'
     global _default_group
@@ -425,16 +460,16 @@ def barrier(group=0):
     Examples:
         .. code-block:: python
 
-        import paddle
-        import paddle.prepare_context as prepare_context
+            import paddle
+            from paddle.distributed import init_parallel_env
 
-        paddle.disable_static()
-        paddle.set_device('gpu:%d'%paddle.ParallelEnv().dev_id)
-        prepare_context()
-        paddle.distributed.barrier()
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            paddle.distributed.barrier()
     """
     op_type = 'barrier'
-    temp = paddle.fill_constant([1], dtype="int32", value="1")
+    temp = fill_constant([1], dtype="int32", value="1")
     if in_dygraph_mode():
         return core.ops.barrier(temp, temp, 'ring_id', group)
     if not isinstance(group, int):
