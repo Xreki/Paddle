@@ -21,11 +21,10 @@ from .fp16_lists import *
 from . import fp16_utils
 from .fp16_utils import *
 from . import bf16
-from . import program_checker
-from .program_checker import *
+from . import debugging
+from .debugging import collect_operator_stats
 
 __all__ = []
 __all__ += decorator.__all__
 __all__ += fp16_lists.__all__
 __all__ += fp16_utils.__all__
-__all__ += program_checker.__all__
