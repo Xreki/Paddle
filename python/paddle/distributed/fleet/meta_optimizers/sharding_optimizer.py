@@ -1819,16 +1819,21 @@ class ShardingOptimizer(MetaOptimizerBase):
         identical when hybrid-dp is used, and the initialization of
         not distributed param between mp group to be identical.
         """
+
+        def _find_master_param(all_vars_name, param_name):
+            for var_name in all_vars_name:
+                if param_name in var_name and "fp32_master" in var_name:
+                    return var_name
+            return None
+
         if self.dp_degree <= 1 and self.mp_degree <= 1:
             return
 
         startup_block = self._startup_program.global_block()
 
-        params = startup_block.all_parameters()
         params_name = []
         not_dist_param_name = set()
-
-        for param in params:
+        for param in startup_block.all_parameters():
             params_name.append(param.name)
             if not hasattr(param, 'is_distributed') or not param.is_distributed:
                 not_dist_param_name.add(param.name)
@@ -1838,6 +1843,8 @@ class ShardingOptimizer(MetaOptimizerBase):
         for op in startup_block.ops:
             if op.type == 'c_broadcast':
                 broadcast_params.add(op.desc.output_arg_names()[0])
+
+        all_vars_name = startup_block.vars
 
         for param in params_name:
             if param in broadcast_params:
@@ -1851,6 +1858,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 rings.append(self.dp_ring_id)
 
             for ring in rings:
+                logger.debug(f"-- Insert broadcast op of param {param}")
                 startup_block.append_op(
                     type='c_broadcast',
                     inputs={'X': param},
@@ -1862,6 +1870,22 @@ class ShardingOptimizer(MetaOptimizerBase):
                         OP_ROLE_KEY: OpRole.Forward,
                     },
                 )
+                master_param = _find_master_param(all_vars_name, param)
+                if master_param is not None:
+                    logger.debug(
+                        f"-- Insert broadcast op of master_param {master_param}"
+                    )
+                    startup_block.append_op(
+                        type='c_broadcast',
+                        inputs={'X': master_param},
+                        outputs={'Out': master_param},
+                        attrs={
+                            'ring_id': ring,
+                            'root': 0,
+                            'use_calc_stream': True,
+                            OP_ROLE_KEY: OpRole.Forward,
+                        },
+                    )
 
         startup_block._sync_with_cpp()
 
