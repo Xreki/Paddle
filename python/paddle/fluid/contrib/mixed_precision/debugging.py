@@ -138,27 +138,26 @@ def _extract_compute_dtype(op, block):
                 elif _is_floating_point(var_dtype):
                     compute_dtype = var_dtype
 
-    if compute_dtype is None:
-        for out_name in op.output_names:
-            out_var = _get_var_from_block(block, op, out_name, False)
-            if out_var is None:
-                continue
+    for out_name in op.output_names:
+        out_var = _get_var_from_block(block, op, out_name, False)
+        if out_var is None:
+            continue
 
-            var_dtype = out_var.dtype
-            if compute_dtype is None:
-                compute_dtype = var_dtype
-            else:
-                if compute_dtype != var_dtype:
-                    if _is_floating_point(compute_dtype) and _is_floating_point(
-                        var_dtype
-                    ):
-                        print(
-                            "Operator < {} > has different output data types.".format(
-                                op.type
-                            )
+        var_dtype = out_var.dtype
+        if compute_dtype is None:
+            compute_dtype = var_dtype
+        else:
+            if compute_dtype != var_dtype:
+                if _is_floating_point(compute_dtype) and _is_floating_point(
+                    var_dtype
+                ):
+                    print(
+                        "Operator < {} > has different input / output data types.".format(
+                            op.type
                         )
-                    elif _is_floating_point(var_dtype):
-                        compute_dtype = var_dtype
+                    )
+                elif _is_floating_point(var_dtype):
+                    compute_dtype = var_dtype
     return compute_dtype
 
 
@@ -201,12 +200,13 @@ def collect_operator_stats(program=None):
                 'create_double_buffer_reader',
             ]:
                 compute_dtype = None
-            elif op.type in ["layer_norm", "layer_norm_grad"]:
-                in_var = _get_var_from_block(block, op, "X", True)
+            elif op.type in ['cast', 'layer_norm', 'layer_norm_grad']:
+                # Not check the input and output dtype difference for this operators.
+                in_var = _get_var_from_block(block, op, 'X', True)
                 compute_dtype = in_var.dtype
             elif "Param" in op.input_names:
-                # optimizers
-                in_var = _get_var_from_block(block, op, "Param", True)
+                # Specify compute_dtype for optimizers.
+                in_var = _get_var_from_block(block, op, 'Param', True)
                 compute_dtype = in_var.dtype
             else:
                 compute_dtype = _extract_compute_dtype(op, block)
