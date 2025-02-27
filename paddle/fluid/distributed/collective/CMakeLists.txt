@@ -1,3 +1,5 @@
+add_subdirectory(deep_ep)
+
 cc_library(
   process_group
   SRCS process_group.cc
