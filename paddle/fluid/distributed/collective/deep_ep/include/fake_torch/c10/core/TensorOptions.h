@@ -15,7 +15,7 @@ class TensorOptions {
 
 };
 
-TensorOptions dtype(ScalarType dtype) noexcept {
+inline TensorOptions dtype(ScalarType dtype) noexcept {
   LOG(FATAL) << "Not implemented";
   return TensorOptions();
 }

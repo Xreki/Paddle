@@ -30,3 +30,4 @@ from .reduce import ReduceOp, reduce  # noqa: F401
 from .reduce_scatter import reduce_scatter  # noqa: F401
 from .scatter import scatter, scatter_object_list  # noqa: F401
 from .send import isend, send  # noqa: F401
+from .deep_ep import Buffer  # noqa: F401
