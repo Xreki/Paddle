@@ -43,11 +43,13 @@ jobs:
         CCACHE_MAXSIZE: 150G
         CCACHE_LIMIT_MULTIPLE: 0.8
         WITH_AVX: "OFF"
+        CCACHE: "/root/.ccache/sot"
       run: |
         # bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
         docker run -d -t --name ${container_name} \
-          -v "/home/data/cfs:/root/.cache" \
-          -v "/home/data/gzcfs:/home/data/gzcfs" \
+          -v "/home/data/cfs:/home/data/cfs" \
+          -v "/home/data/cfs/.cache:/root/.cache" \
+          -v "/home/data/cfs/.ccache:/root/.ccache" \
           -v "/dev/shm:/dev/shm" \
           -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
           -e BRANCH \
@@ -94,10 +96,6 @@ jobs:
         git merge --no-edit develop
         '
 
-    - name: Configure cache and ccache
-      run: |
-        docker exec -t ${container_name} /bin/bash -c 'bash ${ci_scripts}/config_cfs.sh sot ${{ github.env }}'
-
     - name: Determine sot ci trigger
       env:
         work_dir: ${{ github.workspace }}
@@ -105,23 +103,18 @@ jobs:
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
-        bash ${work_dir}/.github/ci/determine_sot_ci_trigger.sh
-        if [ $? -eq 0 ];then
-          echo "run_sot=true" >> ${{ github.env }}
-        else
-          echo "run_sot=false" >> ${{ github.env }}
-        fi
+        bash ${ci_scripts}/determine_sot_ci_trigger.sh
+        determine_excode=$?
+        echo "determine_excode=$determine_excode" >> ${{ github.env }}
         '
 
     - name: Build with python3.8
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        export CACHE_DIR=${{ env.CACHE_DIR }}
-        export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.8
         EXCODE=$?
@@ -132,7 +125,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -147,7 +140,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -162,7 +155,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -177,7 +170,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -192,7 +185,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -206,7 +199,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -221,7 +214,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -236,7 +229,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -251,7 +244,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -266,7 +259,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -281,7 +274,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.run_sot }} == 'true'
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
