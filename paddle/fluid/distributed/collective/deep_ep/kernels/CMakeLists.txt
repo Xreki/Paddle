@@ -1,12 +1,13 @@
 function(add_deep_ep_library target_name source_file)
+    set(options
+        STATIC
+        static
+        SHARED
+        shared)
     set(oneValueArgs "")
     set(multiValueArgs DEPS)
-    cmake_parse_arguments(add_deep_ep_library "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN})
+    cmake_parse_arguments(add_deep_ep_library "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_library(${target_name} STATIC ${source_file})
-    if (add_deep_ep_library_DEPS)
-      target_link_libraries(${target_name} ${add_deep_ep_library_DEPS})
-    endif()
     set_target_properties(${target_name} PROPERTIES
             POSITION_INDEPENDENT_CODE ON
             CXX_STANDARD_REQUIRED ON
@@ -15,7 +16,11 @@ function(add_deep_ep_library target_name source_file)
             CUDA_STANDARD 14
             CUDA_SEPARABLE_COMPILATION ON
     )
-    target_link_libraries(${target_name} PUBLIC cudart cudadevrt)
+    if (add_deep_ep_library_DEPS)
+      target_link_libraries(${target_name} PUBLIC cudart cudadevrt ${add_deep_ep_library_DEPS})
+    else()
+      target_link_libraries(${target_name} PUBLIC cudart cudadevrt)
+    endif()
 endfunction()
 
 add_deep_ep_library(intranode_cuda intranode.cu)

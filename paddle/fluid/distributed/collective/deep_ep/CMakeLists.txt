@@ -6,5 +6,5 @@ cc_library(
   DEPS phi common)
 
 # Link CPP and CUDA together
-target_compile_options(deep_ep PRIVATE -Wno-reorder)
+target_compile_options(deep_ep PRIVATE -Wno-reorder -Wno-error=unused-variable)
 target_link_libraries(deep_ep ${EP_CUDA_LIBRARIES})

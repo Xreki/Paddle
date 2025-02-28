@@ -124,7 +124,7 @@ struct LowLatencyLayout {
         //  - 2 symmetric odd/even signaling buffers
 
         // Message sizes
-        EP_HOST_ASSERT(num_scales * sizeof(float) <= hidden);
+        EP_HOST_ASSERT(num_scales * static_cast<int>(sizeof(float)) <= hidden);
         size_t num_bytes_per_dispatch_msg = hidden + num_scales * sizeof(float) + sizeof(int4);
         size_t num_bytes_per_combine_msg = sizeof(int4) + hidden * sizeof(nv_bfloat16);
 

@@ -13,11 +13,19 @@ class TensorOptions {
     return TensorOptions();
   }
 
+  TensorOptions dtype(ScalarType dtype) const noexcept {
+    LOG(FATAL) << "Not implemented";
+    return TensorOptions();
+  }
 };
 
-TensorOptions dtype(ScalarType dtype) noexcept {
+} // namespace c10
+
+namespace torch {
+
+c10::TensorOptions dtype(c10::ScalarType dtype) noexcept {
   LOG(FATAL) << "Not implemented";
-  return TensorOptions();
+  return c10::TensorOptions();
 }
-  
+ 
 }

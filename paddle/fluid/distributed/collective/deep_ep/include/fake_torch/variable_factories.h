@@ -21,4 +21,15 @@ Tensor empty(IntArrayRef, c10::TensorOptions) {
   LOG(FATAL) << "Tensor::empty() is not allowed!";
   return *(Tensor*)nullptr;
 }
+
+Tensor from_blob(int *, IntArrayRef, c10::TensorOptions) {
+  LOG(FATAL) << "Tensor::empty() is not allowed!";
+  return *(Tensor*)nullptr;
+}
+
+Tensor transpose(const Tensor, int, int) {
+  LOG(FATAL) << "Tensor::empty() is not allowed!";
+  return *(Tensor*)nullptr;
+}
+
 }
