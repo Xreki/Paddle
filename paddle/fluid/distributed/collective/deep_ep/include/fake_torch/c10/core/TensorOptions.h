@@ -28,4 +28,4 @@ c10::TensorOptions dtype(c10::ScalarType dtype) noexcept {
   return c10::TensorOptions();
 }
  
-}
+} // namespace torch

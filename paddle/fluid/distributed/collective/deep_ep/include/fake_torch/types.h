@@ -4,10 +4,14 @@
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/TensorOptions.h"
+#include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/memory/malloc.h"
 
 namespace torch {
-struct Tensor;
+
 struct Tensor {
+  phi::DenseTensor raw_tensor;
+
   Tensor() {
     LOG(FATAL) << "Tensor constructor is not allowed!";
   }
@@ -19,40 +23,43 @@ struct Tensor {
   }
 
   Tensor operator=(const Tensor &x) & noexcept {
-    LOG(FATAL) << "Tensor copy assignment operator is not allowed!";
-    // return *(*Tensor)nullptr;
-    return Tensor();
+    raw_tensor = x.raw_tensor;
+    return *this;
   }
 
   int64_t dim() const {
-    LOG(FATAL) << "Tensor::dim() is not allowed!";
-    return 0;
+    return raw_tensor.dims().size();
   }
 
   bool is_contiguous() const {
-    LOG(FATAL) << "Tensor::is_contiguous() is not allowed!";
-    return false;
+    return true;
   }
 
   int64_t size(int64_t d) const {
-    LOG(FATAL) << "Tensor::size() is not allowed!";
-    return *(int64_t*)nullptr;
+    return raw_tensor.dims().at(d);
   }
 
   template <typename T>
   T* data_ptr() const {
-    LOG(FATAL) << "Tensor::data_ptr() is not allowed!";
-    return nullptr;
+    return const_cast<T*>(raw_tensor.data<T>());
   }
 
   void* data_ptr() const {
-    LOG(FATAL) << "Tensor::data() is not allowed!";
-    return nullptr;
+    return const_cast<void*>(raw_tensor.data());
+  }
+
+  template <typename T>
+  T* data_ptr() {
+    return raw_tensor.data<T>();
+  }
+
+  void* data_ptr() {
+    return raw_tensor.data();
   }
 
   // code may be generated in torch
   void record_stream(const c10::cuda::CUDAStream &stream) const {
-    LOG(FATAL) << "Tensor::record_stream() is not allowed!";
+    paddle::memory::RecordStream(raw_tensor.Holder(), stream.raw_stream());
   }
 
   c10::ScalarType scalar_type() const {
@@ -61,8 +68,7 @@ struct Tensor {
   }
 
   int64_t element_size() const {
-    LOG(FATAL) << "Tensor::element_size() is not allowed!";
-    return 0;
+    return raw_tensor.numel();
   }
 
   c10::TensorOptions options() const {
