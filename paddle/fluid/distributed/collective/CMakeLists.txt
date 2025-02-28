@@ -5,6 +5,8 @@ cc_library(
   SRCS process_group.cc
   DEPS phi common xxhash)
 
+target_link_libraries(process_group deep_ep)
+
 cc_library(
   eager_reducer
   SRCS reducer.cc

@@ -2065,6 +2065,7 @@ def get_setup_parameters():
         'paddle.distributed.checkpoint',
         'paddle.distributed.communication',
         'paddle.distributed.communication.stream',
+        'paddle.distributed.communication.deep_ep',
         'paddle.distributed.metric',
         'paddle.distributed.ps',
         'paddle.distributed.ps.utils',

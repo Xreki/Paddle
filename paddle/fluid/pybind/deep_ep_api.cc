@@ -23,7 +23,6 @@ namespace py = pybind11;
 namespace paddle::pybind {
 
 void BindDeepEPApi(pybind11::module *m) {
-  m->doc() = "DeepEP: an efficient expert-parallel communication library";
 
   pybind11::class_<deep_ep::Config>(*m, "Config")
       .def(pybind11::init<int, int, int, int, int>(),
@@ -31,9 +30,9 @@ void BindDeepEPApi(pybind11::module *m) {
            py::arg("num_max_nvl_chunked_send_tokens") = 6,
            py::arg("num_max_nvl_chunked_recv_tokens") = 256,
            py::arg("num_max_rdma_chunked_send_tokens") = 6,
-           py::arg("num_max_rdma_chunked_recv_tokens") = 256)
-  m->def("get_low_latency_rdma_size_hint",
-        &deep_ep::get_low_latency_rdma_size_hint);
+           py::arg("num_max_rdma_chunked_recv_tokens") = 256);
+//   m->def("get_low_latency_rdma_size_hint",
+//         &deep_ep::get_low_latency_rdma_size_hint);
 
   pybind11::class_<deep_ep::EventHandle>(*m, "EventHandle")
       .def(pybind11::init<>())
@@ -41,17 +40,17 @@ void BindDeepEPApi(pybind11::module *m) {
 
   pybind11::class_<deep_ep::Buffer>(*m, "Buffer")
       .def(pybind11::init<int, int, int64_t, int64_t, bool>())
-      .def("is_available", &deep_ep::Buffer::is_available)
+    //   .def("is_available", &deep_ep::Buffer::is_available)
       .def("get_num_rdma_ranks", &deep_ep::Buffer::get_num_rdma_ranks)
       .def("get_rdma_rank", &deep_ep::Buffer::get_rdma_rank)
       .def("get_root_rdma_rank", &deep_ep::Buffer::get_root_rdma_rank)
-      .def("get_local_device_id", &deep_ep::Buffer::get_local_device_id)
-      .def("get_local_ipc_handle", &deep_ep::Buffer::get_local_ipc_handle)
-      .def("get_local_buffer_tensor", &deep_ep::Buffer::get_local_buffer_tensor)
+    //   .def("get_local_device_id", &deep_ep::Buffer::get_local_device_id)
+    //   .def("get_local_ipc_handle", &deep_ep::Buffer::get_local_ipc_handle)
+    //   .def("get_local_buffer_tensor", &deep_ep::Buffer::get_local_buffer_tensor)
       .def("sync", &deep_ep::Buffer::sync)
-      .def("get_dispatch_layout", &deep_ep::Buffer::get_dispatch_layout)
-      .def("intranode_dispatch", &deep_ep::Buffer::intranode_dispatch)
-      .def("intranode_combine", &deep_ep::Buffer::intranode_combine)
+      .def("get_dispatch_layout", &deep_ep::Buffer::get_dispatch_layout_api)
+      .def("intranode_dispatch", &deep_ep::Buffer::intranode_dispatch_api)
+      .def("intranode_combine", &deep_ep::Buffer::intranode_combine_api);
 }
 
 }  // namespace paddle::pybind

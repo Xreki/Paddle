@@ -99,6 +99,7 @@ from .communication import (  # noqa: F401
     scatter_object_list,
     send,
     stream,
+    deep_ep,
     wait,
 )
 from .entry_attr import (

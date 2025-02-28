@@ -150,6 +150,8 @@ set(PYBIND_SRCS
 
 #ifdef PADDLE_WITH_DISTRIBUTE
 set(PYBIND_SRCS ${PYBIND_SRCS} dist_api.cc)
+set(PYBIND_DEPS ${PYBIND_DEPS} deep_ep)
+set(PYBIND_SRCS ${PYBIND_SRCS} deep_ep_api.cc)
 #endif
 
 if(NOT WITH_SHARED_IR)

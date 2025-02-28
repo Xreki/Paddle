@@ -142,6 +142,7 @@ limitations under the License. */
 
 #ifdef PADDLE_WITH_DISTRIBUTE
 #include "paddle/fluid/pybind/dist_api.h"
+#include "paddle/fluid/pybind/deep_ep_api.h"
 #endif
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -3573,6 +3574,7 @@ All parameter, weight, gradient are variables in Paddle.
   BindDecompVjp(&m);
 #ifdef PADDLE_WITH_DISTRIBUTE
   BindDistApi(&m);
+  BindDeepEPApi(&m);
 #endif
 }
 }  // namespace paddle::pybind
