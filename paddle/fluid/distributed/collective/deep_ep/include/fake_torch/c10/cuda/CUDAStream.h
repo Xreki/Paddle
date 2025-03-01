@@ -26,10 +26,10 @@ class CUDAStream {
     return *(StreamId*)nullptr;
   }
 
-  operator cudaStream_t() const {
-    LOG(FATAL) << "CUDAStream::operator cudaStream_t() is not implemented";
-    return *(cudaStream_t*)nullptr;
-  }
+  // operator cudaStream_t() const {
+  //   LOG(FATAL) << "CUDAStream::operator cudaStream_t() is not implemented";
+  //   return *(cudaStream_t*)nullptr;
+  // }
 };
 
 /**
@@ -61,7 +61,7 @@ inline CUDAStream getStreamFromPool(const bool isHighPriority = false, DeviceInd
   return *(CUDAStream*)nullptr;
 }
 
-inline void setCurrentCUDAStream(CUDAStream stream) {
+inline void setCurrentCUDAStream(cudaStream_t stream) {
   LOG(FATAL) << "setCurrentCUDAStream is not implemented";
 }
 

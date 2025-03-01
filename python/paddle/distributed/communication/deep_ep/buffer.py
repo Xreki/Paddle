@@ -54,12 +54,12 @@ class Buffer:
         self.runtime = CppBuffer(self.rank, self.group_size, num_nvl_bytes, num_rdma_bytes, low_latency_mode, group.id)
 
         # Synchronize device IDs
-        device_ids = [None, ] * self.group_size
+        device_ids = []
         local_device_id = self.runtime.get_local_device_id()
         dist.all_gather_object(device_ids, local_device_id, group)
 
         # Synchronize IPC handles
-        ipc_handles = [None, ] * self.group_size
+        ipc_handles = []
         local_ipc_handle = self.runtime.get_local_ipc_handle()
         dist.all_gather_object(ipc_handles, local_ipc_handle, group)
 

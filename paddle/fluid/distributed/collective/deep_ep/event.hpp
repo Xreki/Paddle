@@ -14,12 +14,13 @@ struct EventHandle {
     std::shared_ptr<torch::Event> event;
 
     EventHandle() {
-        event = std::make_shared<torch::Event>(torch::kCUDA);
-        event->record(c10::cuda::getCurrentCUDAStream());
+        event = std::make_shared<torch::Event>();
+        LOG(WARNING) << "EventHandle constructor is called without record current stream";
+        // event->record(c10::cuda::getCurrentCUDAStream());
     }
 
-    explicit EventHandle(const c10::cuda::CUDAStream& stream) {
-        event = std::make_shared<torch::Event>(torch::kCUDA);
+    explicit EventHandle(const cudaStream_t& stream) {
+        event = std::make_shared<torch::Event>();
         event->record(stream);
     }
 
@@ -30,19 +31,19 @@ struct EventHandle {
     }
 };
 
-inline torch::Event create_event(const c10::cuda::CUDAStream &s) {
-    auto event = torch::Event(torch::kCUDA);
+inline torch::Event create_event(const cudaStream_t &s) {
+    auto event = torch::Event();
     event.record(s);
     return event;
 }
 
-inline void stream_wait(const c10::cuda::CUDAStream& s_0, const c10::cuda::CUDAStream& s_1) {
-    EP_HOST_ASSERT(s_0.id() != s_1.id());
-    s_0.unwrap().wait(create_event(s_1));
+inline void stream_wait(const cudaStream_t& s_0, const cudaStream_t& s_1) {
+    EP_HOST_ASSERT(s_0 != s_1);
+    cudaStreamWaitEvent(s_0, create_event(s_1).event, 0);
 }
 
-inline void stream_wait(const c10::cuda::CUDAStream& s, const EventHandle& event) {
-    s.unwrap().wait(*event.event);
+inline void stream_wait(const cudaStream_t& s, const EventHandle& event) {
+    cudaStreamWaitEvent(s, event.event->event, 0);
 }
 
 } // namespace deep_ep

@@ -9,17 +9,25 @@ namespace torch {
 
 class Event {
  public:
-  Event() = delete;
+  cudaEvent_t event;
+  Event() {
+    cudaEventCreate(&event);
+  }
+  ~Event() {
+    cudaEventDestroy(event);
+  }
   Event(const DeviceType _device_type) {
     LOG(FATAL) << "Not implemented"; 
   }
   void record(const c10::Stream& stream) {
     LOG(FATAL) << "Not implemented";
   }
-  void record(const c10::cuda::CUDAStream& stream) {
-    LOG(FATAL) << "Not implemented";
+  // void record(const c10::cuda::CUDAStream& stream) {
+  //   LOG(FATAL) << "Not implemented";
+  // }
+  void record(const cudaStream_t &stream) {
+    cudaEventRecord(event, stream);
   }
-
 };
 
 }

@@ -5,23 +5,20 @@
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/TensorOptions.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/memory/malloc.h"
 
 namespace torch {
 
 struct Tensor {
-  phi::DenseTensor raw_tensor;
+  paddle::Tensor raw_tensor;
 
+  explicit Tensor(const paddle::Tensor &t) : raw_tensor(t) {}
   Tensor() {
     LOG(FATAL) << "Tensor constructor is not allowed!";
   }
-  Tensor(const Tensor &) {
-    LOG(FATAL) << "Tensor copy constructor is not allowed!";
-  }
-  Tensor(Tensor &&) {
-    LOG(FATAL) << "Tensor move constructor is not allowed!";
-  }
-
+  Tensor(const Tensor &) = default;
+  Tensor(Tensor &&) = default;
   Tensor operator=(const Tensor &x) & noexcept {
     raw_tensor = x.raw_tensor;
     return *this;
@@ -58,9 +55,8 @@ struct Tensor {
   }
 
   // code may be generated in torch
-  void record_stream(const c10::cuda::CUDAStream &stream) const {
-    // paddle::memory::RecordStream(raw_tensor.Holder(), stream.raw_stream());
-    LOG(FATAL) << "Tensor::record_stream() is not allowed!";
+  void record_stream(const cudaStream_t &stream) const {
+    paddle::memory::RecordStream(std::dynamic_pointer_cast<phi::DenseTensor>(raw_tensor.impl())->Holder(), stream);
   }
 
   c10::ScalarType scalar_type() const {
