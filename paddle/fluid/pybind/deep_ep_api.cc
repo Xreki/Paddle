@@ -39,7 +39,7 @@ void BindDeepEPApi(pybind11::module *m) {
       .def("current_stream_wait", &deep_ep::EventHandle::current_stream_wait);
 
   pybind11::class_<deep_ep::Buffer>(*m, "Buffer")
-      .def(pybind11::init<int, int, int64_t, int64_t, bool>())
+      .def(pybind11::init<int, int, int64_t, int64_t, bool, int>())
     //   .def("is_available", &deep_ep::Buffer::is_available)
       .def("get_num_rdma_ranks", &deep_ep::Buffer::get_num_rdma_ranks)
       .def("get_rdma_rank", &deep_ep::Buffer::get_rdma_rank)

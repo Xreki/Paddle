@@ -59,7 +59,8 @@ struct Tensor {
 
   // code may be generated in torch
   void record_stream(const c10::cuda::CUDAStream &stream) const {
-    paddle::memory::RecordStream(raw_tensor.Holder(), stream.raw_stream());
+    // paddle::memory::RecordStream(raw_tensor.Holder(), stream.raw_stream());
+    LOG(FATAL) << "Tensor::record_stream() is not allowed!";
   }
 
   c10::ScalarType scalar_type() const {

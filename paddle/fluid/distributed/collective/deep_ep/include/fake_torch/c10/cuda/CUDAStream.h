@@ -16,7 +16,7 @@ class CUDAStream {
   CUDAStream() {
     LOG(FATAL) << "CUDAStream::CUDAStream() is not implemented";
   }
-  CUDAStream(const cudaStream_t &stream) : raw_stream_(stream) {}
+  CUDAStream(const cudaStream_t &stream) {}
   Stream unwrap() const {
     LOG(FATAL) << "CUDAStream::unwrap() is not implemented";
     return *(Stream*)nullptr;
@@ -30,9 +30,6 @@ class CUDAStream {
     LOG(FATAL) << "CUDAStream::operator cudaStream_t() is not implemented";
     return *(cudaStream_t*)nullptr;
   }
-  const cudaStream_t& raw_stream() const {return raw_stream_; }
- private:
-  cudaStream_t raw_stream_;
 };
 
 /**

@@ -51,7 +51,7 @@ class Buffer:
         self.num_nvl_bytes = num_nvl_bytes
         self.num_rdma_bytes = num_rdma_bytes
         self.low_latency_mode = low_latency_mode
-        self.runtime = CppBuffer(self.rank, self.group_size, num_nvl_bytes, num_rdma_bytes, low_latency_mode)
+        self.runtime = CppBuffer(self.rank, self.group_size, num_nvl_bytes, num_rdma_bytes, low_latency_mode, group.id)
 
         # Synchronize device IDs
         device_ids = [None, ] * self.group_size

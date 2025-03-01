@@ -18,6 +18,8 @@
 #include "kernels/exception.cuh"
 #include "paddle/phi/core/dense_tensor.h"
 
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
+
 namespace deep_ep {
 
 struct Buffer {
@@ -44,7 +46,9 @@ private:
     cudaIpcMemHandle_t ipc_handles[NUM_MAX_NVL_PEERS];
 
     // Stream for communication
-    c10::cuda::CUDAStream comm_stream;
+    // c10::cuda::CUDAStream comm_stream;
+    cudaStream_t comm_stream;
+    phi::distributed::NCCLCommContext* comm_ctx;
 
     // After IPC/NVSHMEM synchronization, this flag will be true
     bool available = false;
@@ -73,7 +77,7 @@ private:
     void move_fifo_slots(int num_slots = 1);
 
 public:
-    Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode);
+    Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode, int context_ring_id);
 
     ~Buffer() noexcept(false);
 
