@@ -1175,45 +1175,212 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
 }
 
 std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::vector<int>, phi::DenseTensor, phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<EventHandle>>
-internode_dispatch(const phi::DenseTensor& x, const std::optional<phi::DenseTensor>& x_scales,
-                    const std::optional<phi::DenseTensor>& topk_idx, const std::optional<phi::DenseTensor>& topk_weights,
-                    const std::optional<phi::DenseTensor>& num_tokens_per_rank, const std::optional<phi::DenseTensor>& num_tokens_per_rdma_rank,
-                    const phi::DenseTensor& is_token_in_rank, const std::optional<phi::DenseTensor>& num_tokens_per_expert,
-                    int cached_num_recv_tokens, int cached_num_rdma_recv_tokens,
-                    const std::optional<phi::DenseTensor>& cached_rdma_channel_prefix_matrix, const std::optional<phi::DenseTensor>& cached_recv_rdma_rank_prefix_sum,
-                    const std::optional<phi::DenseTensor>& cached_gbl_channel_prefix_matrix, const std::optional<phi::DenseTensor>& cached_recv_gbl_rank_prefix_sum,
-                    int expert_alignment, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
+Buffer::internode_dispatch_api(const phi::DenseTensor& x,
+                               const std::optional<phi::DenseTensor>& x_scales,
+                               const std::optional<phi::DenseTensor>& topk_idx,
+                               const std::optional<phi::DenseTensor>& topk_weights,
+                               const std::optional<phi::DenseTensor>& num_tokens_per_rank,
+                               const std::optional<phi::DenseTensor>& num_tokens_per_rdma_rank,
+                               const phi::DenseTensor& is_token_in_rank,
+                               const std::optional<phi::DenseTensor>& num_tokens_per_expert,
+                               int cached_num_recv_tokens, int cached_num_rdma_recv_tokens,
+                               const std::optional<phi::DenseTensor>& cached_rdma_channel_prefix_matrix,
+                               const std::optional<phi::DenseTensor>& cached_recv_rdma_rank_prefix_sum,
+                               const std::optional<phi::DenseTensor>& cached_gbl_channel_prefix_matrix,
+                               const std::optional<phi::DenseTensor>& cached_recv_gbl_rank_prefix_sum,
+                               int expert_alignment, const Config& config,
+                               std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
   const auto& x_ = ConvertPaddleTensorToFakeTorchTensor(x);
-  std::optional<phi::DenseTensor> x_scales_ = std::nullopt;
-  if (x_scales.has_value()) {
-    x_scales_ = ConvertPaddleTensorToFakeTorchTensor(x_scales);
-  }
-  std::optional<phi::DenseTensor> topk_idx_ = std::nullopt;
-  if (topk_idx.has_value()) {
-    topk_idx_ = ConvertPaddleTensorToFakeTorchTensor(topk_idx);
-  }
+  std::optional<torch::Tensor> x_scales_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(x_scales);
 
+  std::optional<torch::Tensor> topk_idx_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(topk_idx);
+  std::optional<torch::Tensor> topk_weights_ =
+
+      ConvertOptionalPaddleTensorToFakeTorchTensor(topk_weights);
+  std::optional<torch::Tensor> num_tokens_per_rank_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(num_tokens_per_rank);
+  std::optional<torch::Tensor> num_tokens_per_rdma_rank_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(num_tokens_per_rdma_rank);
+
+  const auto& is_token_in_rank_ =
+      ConvertPaddleTensorToFakeTorchTensor(is_token_in_rank);
+  std::optional<torch::Tensor> num_tokens_per_expert_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(num_tokens_per_expert);
+
+  std::optional<torch::Tensor> cached_rdma_channel_prefix_matrix_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(cached_rdma_channel_prefix_matrix);
+  std::optional<torch::Tensor> cached_recv_rdma_rank_prefix_sum_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(cached_recv_rdma_rank_prefix_sum);
+  std::optional<torch::Tensor> cached_gbl_channel_prefix_matrix_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(cached_gbl_channel_prefix_matrix);
+  std::optional<torch::Tensor> cached_recv_gbl_rank_prefix_sum_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(cached_recv_gbl_rank_prefix_sum);
+  
+  auto res = internode_dispatch(x_, x_scales_, topk_idx_, topk_weights_,
+                                num_tokens_per_rank_, num_tokens_per_rdma_rank_,
+                                is_token_in_rank_, num_tokens_per_expert_,
+                                cached_num_recv_tokens, cached_num_rdma_recv_tokens,
+                                cached_rdma_channel_prefix_matrix_,
+                                cached_recv_rdma_rank_prefix_sum_,
+                                cached_gbl_channel_prefix_matrix_,
+                                cached_recv_gbl_rank_prefix_sum_,
+                                expert_alignment, config, previous_event, async,
+                                allocate_on_comm_stream);
+
+  auto recv_x_ = ConvertFakeTorchTensorToPaddleTensor(std::get<0>(res));
+  std::optional<phi::DenseTensor> recv_x_scales_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<1>(res));
+
+  std::optional<phi::DenseTensor> recv_topk_idx_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<2>(res));
+  std::optional<phi::DenseTensor> recv_topk_weights_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<3>(res));
+
+  const auto &num_recv_tokens_per_expert_list = std::get<4>(res);
+
+  auto rdma_channel_prefix_matrix_ =
+      ConvertFakeTorchTensorToPaddleTensor(std::get<5>(res));
+
+  auto gbl_channel_prefix_matrix_ =
+      ConvertFakeTorchTensorToPaddleTensor(std::get<6>(res));
+
+  std::optional<phi::DenseTensor> recv_rdma_channel_prefix_matrix_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<7>(res));
+  auto recv_rdma_rank_prefix_sum_ =
+      ConvertFakeTorchTensorToPaddleTensor(std::get<8>(res));
+
+  std::optional<phi::DenseTensor> recv_gbl_channel_prefix_matrix_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<9>(res));
+  auto recv_gbl_rank_prefix_sum_ =
+      ConvertFakeTorchTensorToPaddleTensor(std::get<10>(res));
+
+  std::optional<phi::DenseTensor> recv_src_meta_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<11>(res));
+
+  std::optional<phi::DenseTensor> send_rdma_head_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<12>(res));
+  std::optional<phi::DenseTensor> send_nvl_head_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<13>(res));
+
+  const auto &event = std::get<14>(res);
+
+  return {recv_x_, recv_x_scales_, recv_topk_idx_, recv_topk_weights_,
+          num_recv_tokens_per_expert_list,
+          rdma_channel_prefix_matrix_, gbl_channel_prefix_matrix_,
+          recv_rdma_channel_prefix_matrix_, recv_rdma_rank_prefix_sum_,
+          recv_gbl_channel_prefix_matrix_, recv_gbl_rank_prefix_sum_,
+          recv_src_meta_, send_rdma_head_, send_nvl_head_, event};
 }
 
 std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<EventHandle>>
-internode_combine(const phi::DenseTensor& x, const std::optional<phi::DenseTensor>& topk_weights,
-                    const phi::DenseTensor& src_meta, const phi::DenseTensor& is_combined_token_in_rank,
-                    const phi::DenseTensor& rdma_channel_prefix_matrix, const phi::DenseTensor& rdma_rank_prefix_sum, const phi::DenseTensor& gbl_channel_prefix_matrix,
-                    const phi::DenseTensor& combined_rdma_head, const phi::DenseTensor& combined_nvl_head,
-                    const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
+Buffer::internode_combine_api(const phi::DenseTensor& x,
+                              const std::optional<phi::DenseTensor>& topk_weights,
+                              const phi::DenseTensor& src_meta,
+                              const phi::DenseTensor& is_combined_token_in_rank,
+                              const phi::DenseTensor& rdma_channel_prefix_matrix,
+                              const phi::DenseTensor& rdma_rank_prefix_sum,
+                              const phi::DenseTensor& gbl_channel_prefix_matrix,
+                              const phi::DenseTensor& combined_rdma_head,
+                              const phi::DenseTensor& combined_nvl_head,
+                              const Config& config, std::optional<EventHandle>& previous_event,
+                              bool async, bool allocate_on_comm_stream) {
+  const auto& x_ = ConvertPaddleTensorToFakeTorchTensor(x);
 
+  std::optional<torch::Tensor> topk_weights_ =
+      ConvertOptionalPaddleTensorToFakeTorchTensor(topk_weights);
+
+  const auto& src_meta_ =
+      ConvertPaddleTensorToFakeTorchTensor(src_meta);
+  const auto& is_combined_token_in_rank_ =
+      ConvertPaddleTensorToFakeTorchTensor(is_combined_token_in_rank);
+
+  const auto& rdma_channel_prefix_matrix_ =
+      ConvertPaddleTensorToFakeTorchTensor(rdma_channel_prefix_matrix);
+  const auto& rdma_rank_prefix_sum_ =
+      ConvertPaddleTensorToFakeTorchTensor(rdma_rank_prefix_sum);
+  const auto& gbl_channel_prefix_matrix_ =
+      ConvertPaddleTensorToFakeTorchTensor(gbl_channel_prefix_matrix);
+
+  const auto& combined_rdma_head_ =
+      ConvertPaddleTensorToFakeTorchTensor(combined_rdma_head);
+  const auto& combined_nvl_head_ =
+      ConvertPaddleTensorToFakeTorchTensor(combined_nvl_head);
+
+  auto res = internode_combine(x_, topk_weights_, src_meta_, is_combined_token_in_rank_,
+                               rdma_channel_prefix_matrix_, rdma_rank_prefix_sum_,
+                               gbl_channel_prefix_matrix_, combined_rdma_head_, combined_nvl_head_,
+                               config, previous_event, async, allocate_on_comm_stream);
+
+  auto combined_x_ = ConvertFakeTorchTensorToPaddleTensor(std::get<0>(res));
+  std::optional<phi::DenseTensor> combined_topk_weights_ =
+      ConvertOptionalFakeTorchTensorToPaddleTensor(std::get<1>(res));
+
+  const auto &event = std::get<2>(res);
+
+  return {combined_x_, combined_topk_weights_, event};
+}
+
+std::tuple<phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
+Buffer::low_latency_dispatch_api(const phi::DenseTensor& x, const phi::DenseTensor& topk_idx,
+                                 int num_max_dispatch_tokens_per_rank, int num_experts,
+                                 bool async, bool return_recv_hook) {
+  const auto& x_ = ConvertPaddleTensorToFakeTorchTensor(x);
+  const auto& topk_idx_ = ConvertPaddleTensorToFakeTorchTensor(topk_idx);
+
+  auto res = low_latency_dispatch(x_, topk_idx_, num_max_dispatch_tokens_per_rank,
+                                  num_experts, async, return_recv_hook);
+
+  auto packed_recv_x_ = ConvertFakeTorchTensorToPaddleTensor(std::get<0>(res));
+  auto packed_recv_x_scales_ = ConvertFakeTorchTensorToPaddleTensor(std::get<1>(res));
+  auto packed_recv_count_ = ConvertFakeTorchTensorToPaddleTensor(std::get<2>(res));
+  auto packed_recv_src_info_ = ConvertFakeTorchTensorToPaddleTensor(std::get<3>(res));
+  auto packed_recv_layout_range_ = ConvertFakeTorchTensorToPaddleTensor(std::get<4>(res));
+
+  const auto& event = std::get<5>(res);
+  auto recv_hook = std::get<6>(res);
+
+  return {packed_recv_x_, packed_recv_x_scales_, packed_recv_count_,
+          packed_recv_src_info_, packed_recv_layout_range_, event, recv_hook};
+}
+
+std::tuple<phi::DenseTensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
+Buffer::low_latency_combine_api(const phi::DenseTensor& x, const phi::DenseTensor& topk_idx,
+                                const phi::DenseTensor& topk_weights, const phi::DenseTensor& src_info,
+                                const phi::DenseTensor& layout_range, int num_max_dispatch_tokens_per_rank,
+                                int num_experts, bool async, bool return_recv_hook) {
+  const auto& x_ = ConvertPaddleTensorToFakeTorchTensor(x);
+  const auto& topk_idx_ = ConvertPaddleTensorToFakeTorchTensor(topk_idx);
+  const auto& topk_weights_ =
+      ConvertPaddleTensorToFakeTorchTensor(topk_weights);
+  const auto& src_info_ = ConvertPaddleTensorToFakeTorchTensor(src_info);
+  const auto& layout_range_ = ConvertPaddleTensorToFakeTorchTensor(layout_range);
+
+  auto res = low_latency_combine(x_, topk_idx_, topk_weights_, src_info_, layout_range_,
+                                num_max_dispatch_tokens_per_rank, num_experts, async, return_recv_hook);
+
+  auto combined_x_ = ConvertFakeTorchTensorToPaddleTensor(std::get<0>(res));
+  const auto& event = std::get<1>(res);
+  auto recv_hook = std::get<2>(res);
+
+  return {combined_x_, event, recv_hook};
 }
 
 std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, phi::DenseTensor, std::optional<EventHandle>>
-Buffer::get_dispatch_layout_api(const phi::DenseTensor& topk_idx, int num_experts, std::optional<EventHandle>& previous_event,
-                    bool async, bool allocate_on_comm_stream) {
+Buffer::get_dispatch_layout_api(const phi::DenseTensor& topk_idx,
+                                int num_experts, std::optional<EventHandle>& previous_event,
+                                bool async, bool allocate_on_comm_stream) {
   const auto& topk_idx_ = ConvertPaddleTensorToFakeTorchTensor(topk_idx);
+
   auto res = get_dispatch_layout(topk_idx_, num_experts, previous_event, async, allocate_on_comm_stream);
+
   const auto &num_tokens_per_rank = std::get<0>(res);
   const auto &num_tokens_per_rdma_rank = std::get<1>(res);
   const auto &num_tokens_per_expert = std::get<2>(res);
   const auto &is_token_in_rank = std::get<3>(res);
   const auto &event = std::get<4>(res);
+
   auto num_tokens_per_rank_ = ConvertFakeTorchTensorToPaddleTensor(num_tokens_per_rank);
   std::optional<phi::DenseTensor> num_tokens_per_rdma_rank_;
   if (num_tokens_per_rdma_rank.has_value()) {
@@ -1221,6 +1388,7 @@ Buffer::get_dispatch_layout_api(const phi::DenseTensor& topk_idx, int num_expert
   }
   auto num_tokens_per_expert_ = ConvertFakeTorchTensorToPaddleTensor(num_tokens_per_expert);
   auto is_token_in_rank_ = ConvertFakeTorchTensorToPaddleTensor(is_token_in_rank);
+
   return {num_tokens_per_rank_, num_tokens_per_rdma_rank_, num_tokens_per_expert_, is_token_in_rank_, event};
 }
 
@@ -1337,6 +1505,22 @@ torch::Tensor ConvertPaddleTensorToFakeTorchTensor(const phi::DenseTensor &tenso
 
 phi::DenseTensor ConvertFakeTorchTensorToPaddleTensor(const torch::Tensor &tensor) {
   return tensor.raw_tensor;
+}
+
+std::optional<torch::Tensor> ConvertOptionalPaddleTensorToFakeTorchTensor(const std::optional<phi::DenseTensor> &tensor) {
+  std::optional<torch::Tensor> res;
+  if (tensor.has_value()) {
+    res = ConvertPaddleTensorToFakeTorchTensor(tensor.value());
+  }
+  return res;
+}
+
+std::optional<phi::DenseTensor> ConvertOptionalFakeTorchTensorToPaddleTensor(const std::optional<torch::Tensor> &tensor) {
+  std::optional<phi::DenseTensor> res;
+  if (tensor.has_value()) {
+    res = ConvertFakeTorchTensorToPaddleTensor(tensor.value());
+  }
+  return res;
 }
 
 } // namespace deep_ep
