@@ -3,7 +3,7 @@ import paddle
 import paddle.distributed as dist
 from typing import Callable, List, Tuple, Optional, Union
 
-from .utils import EventOverlap
+from .utils import EventOverlap, EventHandle
 from paddle.base.core import Buffer as CppBuffer
 from paddle.base.core import Config
 from paddle.distributed.communication.group import Group
@@ -296,7 +296,7 @@ class Buffer:
         if handle is not None:
             assert topk_idx is None and topk_weights is None
             rank_prefix_matrix, channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx, is_token_in_rank, send_head = handle
-            num_recv_tokens = recv_src_idx.size(0)
+            num_recv_tokens = recv_src_idx.shape[0]
             recv_x, recv_x_scales, _, _, _, _, _, _, _, _, event = self.runtime.intranode_dispatch(
                 x, x_scales, None, None,
                 None, is_token_in_rank, None, num_recv_tokens, rank_prefix_matrix, channel_prefix_matrix,

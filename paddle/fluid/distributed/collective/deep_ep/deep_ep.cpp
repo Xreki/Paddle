@@ -12,6 +12,7 @@
 #include "kernels/configs.cuh"
 
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/variable_factories.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/ATen/cuda/CUDADataType.h"
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/common/place.h"
@@ -413,10 +414,10 @@ Buffer::intranode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
                                           comm_stream);
         move_fifo_slots(2);
     } else {
-        rank_prefix_matrix = torch::empty({num_ranks, num_ranks}, dtype(torch::kInt32).device(torch::kCUDA));
-        // rank_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
-        channel_prefix_matrix = torch::empty({num_ranks, num_channels}, dtype(torch::kInt32).device(torch::kCUDA));
-        // channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // rank_prefix_matrix = torch::empty({num_ranks, num_ranks}, dtype(torch::kInt32).device(torch::kCUDA));
+        rank_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // channel_prefix_matrix = torch::empty({num_ranks, num_channels}, dtype(torch::kInt32).device(torch::kCUDA));
+        channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
         // Send sizes
         // Meta information:
@@ -458,36 +459,36 @@ Buffer::intranode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
     }
 
     // Allocate new tensors
-    auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
-    // auto recv_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, hidden}, x.dtype(), x.place()));
-    auto recv_src_idx = torch::empty({num_recv_tokens}, dtype(torch::kInt32).device(torch::kCUDA));
-    // auto recv_src_idx = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+    // auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
+    auto recv_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, hidden}, x.dtype(), x.place()));
+    // auto recv_src_idx = torch::empty({num_recv_tokens}, dtype(torch::kInt32).device(torch::kCUDA));
+    auto recv_src_idx = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens}, phi::DataType::INT32, phi::GPUPlace(device_id)));
     auto recv_topk_idx = std::optional<torch::Tensor>(), recv_topk_weights = std::optional<torch::Tensor>(), recv_x_scales = std::optional<torch::Tensor>();
-    auto recv_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, dtype(torch::kInt32).device(torch::kCUDA));
-    // auto recv_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
-    auto send_head = torch::empty({num_tokens, num_ranks}, dtype(torch::kInt32).device(torch::kCUDA));
-    // auto send_head = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_tokens, num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+    // auto recv_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, dtype(torch::kInt32).device(torch::kCUDA));
+    auto recv_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+    // auto send_head = torch::empty({num_tokens, num_ranks}, dtype(torch::kInt32).device(torch::kCUDA));
+    auto send_head = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_tokens, num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
     // Assign pointers
     int64_t* recv_topk_idx_ptr = nullptr;
     float* recv_topk_weights_ptr = nullptr;
     float* recv_x_scales_ptr = nullptr;
     if (topk_idx.has_value()) {
-        recv_topk_idx = torch::empty({num_recv_tokens, num_topk}, topk_idx->options());
-        // recv_topk_idx = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_idx->dtype(), topk_idx->place()));
-        recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
-        // recv_topk_weights = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_weights->dtype(), topk_idx->place()));
+        // recv_topk_idx = torch::empty({num_recv_tokens, num_topk}, topk_idx->options());
+        recv_topk_idx = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_idx->dtype(), topk_idx->place()));
+        // recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
+        recv_topk_weights = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_weights->dtype(), topk_idx->place()));
         recv_topk_idx_ptr = recv_topk_idx->data_ptr<int64_t>();
         recv_topk_weights_ptr = recv_topk_weights->data_ptr<float>();
     }
     if (x_scales.has_value()) {
-        recv_x_scales = x_scales->dim() == 1 ?
-                        torch::empty({num_recv_tokens}, x_scales->options()) :
-                        torch::empty({num_recv_tokens, num_scales}, x_scales->options());
         // recv_x_scales = x_scales->dim() == 1 ?
-                        // ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens}, x_scales->dtype(), x_scales->place())) :
-                        // ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_scales}, x_scales->dtype(), x_scales->place()));
-        
+        //                 torch::empty({num_recv_tokens}, x_scales->options()) :
+        //                 torch::empty({num_recv_tokens, num_scales}, x_scales->options());
+        recv_x_scales = x_scales->dim() == 1 ?
+                     ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens}, x_scales->dtype(), x_scales->place())) :
+                     ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_scales}, x_scales->dtype(), x_scales->place()));
+    
         recv_x_scales_ptr = recv_x_scales->data_ptr<float>();
     }
 
@@ -583,7 +584,8 @@ Buffer::intranode_combine(const torch::Tensor& x, const std::optional<torch::Ten
         EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
         num_topk = static_cast<int>(topk_weights->size(1));
         topk_weights_ptr = topk_weights->data_ptr<float>();
-        recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
+        // recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
+        recv_topk_weights = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_weights->dtype(), topk_weights->place()));
         recv_topk_weights_ptr = recv_topk_weights->data_ptr<float>();
     }
 
@@ -598,7 +600,8 @@ Buffer::intranode_combine(const torch::Tensor& x, const std::optional<torch::Ten
     move_fifo_slots(2);
 
     // Combine data
-    auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
+    // auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
+    auto recv_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, hidden}, x.dtype(), x.place()));
     EP_HOST_ASSERT(num_channels * num_ranks * sizeof(int) * 2 +                                                      // Queue head and tail
                    num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens * hidden * x.element_size() +    // Data buffer
                    num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens * sizeof(int) +                  // Source index buffer
@@ -1363,7 +1366,7 @@ torch::Tensor ConvertPaddleTensorToFakeTorchTensor(const paddle::Tensor &tensor)
 }
 
 paddle::Tensor ConvertFakeTorchTensorToPaddleTensor(const torch::Tensor &tensor) {
-  return tensor.raw_tensor;
+  return tensor.raw_tensor();
 }
 
 } // namespace deep_ep
