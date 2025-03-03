@@ -16,7 +16,10 @@
 #include "event.hpp"
 #include "kernels/configs.cuh"
 #include "kernels/exception.cuh"
-#include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/api/include/tensor.h"
+
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
+#include "paddle/phi/backends/gpu/gpu_context.h"
 
 namespace deep_ep {
 
@@ -44,7 +47,10 @@ private:
     cudaIpcMemHandle_t ipc_handles[NUM_MAX_NVL_PEERS];
 
     // Stream for communication
-    c10::cuda::CUDAStream comm_stream;
+    // c10::cuda::CUDAStream comm_stream;
+    cudaStream_t comm_stream;
+    phi::distributed::NCCLCommContext* comm_ctx;
+    phi::GPUContext* calc_ctx;
 
     // After IPC/NVSHMEM synchronization, this flag will be true
     bool available = false;
@@ -73,7 +79,7 @@ private:
     void move_fifo_slots(int num_slots = 1);
 
 public:
-    Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode);
+    Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode, int context_ring_id);
 
     ~Buffer() noexcept(false);
 
@@ -143,67 +149,67 @@ public:
                         int num_max_dispatch_tokens_per_rank, int num_experts,
                         bool async, bool return_recv_hook);
 
-    std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::vector<int>, phi::DenseTensor, phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<EventHandle>>
-    internode_dispatch_api(const phi::DenseTensor& x,
-                           const std::optional<phi::DenseTensor>& x_scales,
-                           const std::optional<phi::DenseTensor>& topk_idx,
-                           const std::optional<phi::DenseTensor>& topk_weights,
-                           const std::optional<phi::DenseTensor>& num_tokens_per_rank,
-                           const std::optional<phi::DenseTensor>& num_tokens_per_rdma_rank,
-                           const phi::DenseTensor& is_token_in_rank,
-                           const std::optional<phi::DenseTensor>& num_tokens_per_expert,
+    std::tuple<paddle::Tensor, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::vector<int>, paddle::Tensor, paddle::Tensor, std::optional<paddle::Tensor>, paddle::Tensor, std::optional<paddle::Tensor>, paddle::Tensor, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::optional<EventHandle>>
+    internode_dispatch_api(const paddle::Tensor& x,
+                           const std::optional<paddle::Tensor>& x_scales,
+                           const std::optional<paddle::Tensor>& topk_idx,
+                           const std::optional<paddle::Tensor>& topk_weights,
+                           const std::optional<paddle::Tensor>& num_tokens_per_rank,
+                           const std::optional<paddle::Tensor>& num_tokens_per_rdma_rank,
+                           const paddle::Tensor& is_token_in_rank,
+                           const std::optional<paddle::Tensor>& num_tokens_per_expert,
                            int cached_num_recv_tokens, int cached_num_rdma_recv_tokens,
-                           const std::optional<phi::DenseTensor>& cached_rdma_channel_prefix_matrix,
-                           const std::optional<phi::DenseTensor>& cached_recv_rdma_rank_prefix_sum,
-                           const std::optional<phi::DenseTensor>& cached_gbl_channel_prefix_matrix,
-                           const std::optional<phi::DenseTensor>& cached_recv_gbl_rank_prefix_sum,
+                           const std::optional<paddle::Tensor>& cached_rdma_channel_prefix_matrix,
+                           const std::optional<paddle::Tensor>& cached_recv_rdma_rank_prefix_sum,
+                           const std::optional<paddle::Tensor>& cached_gbl_channel_prefix_matrix,
+                           const std::optional<paddle::Tensor>& cached_recv_gbl_rank_prefix_sum,
                            int expert_alignment, const Config& config,
                            std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
 
-    std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<EventHandle>>
-    internode_combine_api(const phi::DenseTensor& x, const std::optional<phi::DenseTensor>& topk_weights,
-                          const phi::DenseTensor& src_meta, const phi::DenseTensor& is_combined_token_in_rank,
-                          const phi::DenseTensor& rdma_channel_prefix_matrix,
-                          const phi::DenseTensor& rdma_rank_prefix_sum,
-                          const phi::DenseTensor& gbl_channel_prefix_matrix,
-                          const phi::DenseTensor& combined_rdma_head,
-                          const phi::DenseTensor& combined_nvl_head,
+    std::tuple<paddle::Tensor, std::optional<paddle::Tensor>, std::optional<EventHandle>>
+    internode_combine_api(const paddle::Tensor& x, const std::optional<paddle::Tensor>& topk_weights,
+                          const paddle::Tensor& src_meta, const paddle::Tensor& is_combined_token_in_rank,
+                          const paddle::Tensor& rdma_channel_prefix_matrix,
+                          const paddle::Tensor& rdma_rank_prefix_sum,
+                          const paddle::Tensor& gbl_channel_prefix_matrix,
+                          const paddle::Tensor& combined_rdma_head,
+                          const paddle::Tensor& combined_nvl_head,
                           const Config& config, std::optional<EventHandle>& previous_event,
                           bool async, bool allocate_on_comm_stream);
 
-    std::tuple<phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
-    low_latency_dispatch_api(const phi::DenseTensor& x, const phi::DenseTensor& topk_idx,
+    std::tuple<paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
+    low_latency_dispatch_api(const paddle::Tensor& x, const paddle::Tensor& topk_idx,
                              int num_max_dispatch_tokens_per_rank, int num_experts,
                              bool async, bool return_recv_hook);
 
-    std::tuple<phi::DenseTensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
-    low_latency_combine_api(const phi::DenseTensor& x, const phi::DenseTensor& topk_idx,
-                            const phi::DenseTensor& topk_weights, const phi::DenseTensor& src_info,
-                            const phi::DenseTensor& layout_range, int num_max_dispatch_tokens_per_rank,
+    std::tuple<paddle::Tensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
+    low_latency_combine_api(const paddle::Tensor& x, const paddle::Tensor& topk_idx,
+                            const paddle::Tensor& topk_weights, const paddle::Tensor& src_info,
+                            const paddle::Tensor& layout_range, int num_max_dispatch_tokens_per_rank,
                             int num_experts, bool async, bool return_recv_hook);
 
-    std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, phi::DenseTensor, phi::DenseTensor, std::optional<EventHandle>>
-    get_dispatch_layout_api(const phi::DenseTensor& topk_idx, int num_experts, std::optional<EventHandle>& previous_event,
+    std::tuple<paddle::Tensor, std::optional<paddle::Tensor>, paddle::Tensor, paddle::Tensor, std::optional<EventHandle>>
+    get_dispatch_layout_api(const paddle::Tensor& topk_idx, int num_experts, std::optional<EventHandle>& previous_event,
                         bool async, bool allocate_on_comm_stream);
 
-    std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::optional<phi::DenseTensor>, std::vector<int>, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, phi::DenseTensor, std::optional<EventHandle>>
-    intranode_dispatch_api(const phi::DenseTensor& x, const std::optional<phi::DenseTensor>& x_scales,
-                       const std::optional<phi::DenseTensor>& topk_idx, const std::optional<phi::DenseTensor>& topk_weights,
-                       const std::optional<phi::DenseTensor>& num_tokens_per_rank, const phi::DenseTensor& is_token_in_rank, const std::optional<phi::DenseTensor>& num_tokens_per_expert,
-                       int cached_num_recv_tokens, const std::optional<phi::DenseTensor>& cached_rank_prefix_matrix, const std::optional<phi::DenseTensor>& cached_channel_prefix_matrix,
+    std::tuple<paddle::Tensor, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::optional<paddle::Tensor>, std::vector<int>, paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, std::optional<EventHandle>>
+    intranode_dispatch_api(const paddle::Tensor& x, const std::optional<paddle::Tensor>& x_scales,
+                       const std::optional<paddle::Tensor>& topk_idx, const std::optional<paddle::Tensor>& topk_weights,
+                       const std::optional<paddle::Tensor>& num_tokens_per_rank, const paddle::Tensor& is_token_in_rank, const std::optional<paddle::Tensor>& num_tokens_per_expert,
+                       int cached_num_recv_tokens, const std::optional<paddle::Tensor>& cached_rank_prefix_matrix, const std::optional<paddle::Tensor>& cached_channel_prefix_matrix,
                        int expert_alignment, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
 
-    std::tuple<phi::DenseTensor, std::optional<phi::DenseTensor>, std::optional<EventHandle>>
-    intranode_combine_api(const phi::DenseTensor& x, const std::optional<phi::DenseTensor>& topk_weights,
-                      const phi::DenseTensor& src_idx, const phi::DenseTensor& rank_prefix_matrix, const phi::DenseTensor& channel_prefix_matrix,
-                      const phi::DenseTensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
+    std::tuple<paddle::Tensor, std::optional<paddle::Tensor>, std::optional<EventHandle>>
+    intranode_combine_api(const paddle::Tensor& x, const std::optional<paddle::Tensor>& topk_weights,
+                      const paddle::Tensor& src_idx, const paddle::Tensor& rank_prefix_matrix, const paddle::Tensor& channel_prefix_matrix,
+                      const paddle::Tensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
 
 };
 
-torch::Tensor ConvertPaddleTensorToFakeTorchTensor(const phi::DenseTensor &tensor);
-phi::DenseTensor ConvertFakeTorchTensorToPaddleTensor(const torch::Tensor &tensor);
+torch::Tensor ConvertPaddleTensorToFakeTorchTensor(const paddle::Tensor &tensor);
+paddle::Tensor ConvertFakeTorchTensorToPaddleTensor(const torch::Tensor &tensor);
 
-std::optional<torch::Tensor> ConvertOptionalPaddleTensorToFakeTorchTensor(const std::optional<phi::DenseTensor> &tensor);
-std::optional<phi::DenseTensor> ConvertOptionalFakeTorchTensorToPaddleTensor(const std::optional<torch::Tensor> &tensor);
+std::optional<torch::Tensor> ConvertOptionalPaddleTensorToFakeTorchTensor(const std::optional<paddle::Tensor> &tensor);
+std::optional<paddle::Tensor> ConvertOptionalFakeTorchTensorToPaddleTensor(const std::optional<torch::Tensor> &tensor);
 
 } // namespace deep_ep

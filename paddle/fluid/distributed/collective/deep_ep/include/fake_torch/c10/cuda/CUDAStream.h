@@ -5,6 +5,7 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/phi/api/include/context_pool.h"
+#include "paddle/phi/core/cuda_stream.h"
 
 namespace c10::cuda {
 
@@ -18,19 +19,20 @@ class CUDAStream {
   }
   CUDAStream(const cudaStream_t &stream) : raw_stream_(stream) {}
   Stream unwrap() const {
-    LOG(FATAL) << "CUDAStream::unwrap() is not implemented";
-    return *(Stream*)nullptr;
+    return Stream(raw_stream_);
   }
   StreamId id() const {
-    LOG(FATAL) << "CUDAStream::unwrap() is not implemented";
-    return *(StreamId*)nullptr;
+    return reinterpret_cast<StreamId>(raw_stream_);
   }
 
   operator cudaStream_t() const {
-    LOG(FATAL) << "CUDAStream::operator cudaStream_t() is not implemented";
-    return *(cudaStream_t*)nullptr;
+    return raw_stream_;
   }
-  const cudaStream_t& raw_stream() const {return raw_stream_; }
+
+  const cudaStream_t& raw_stream() const {
+    return raw_stream_;
+  }
+
  private:
   cudaStream_t raw_stream_;
 };
@@ -43,13 +45,13 @@ class CUDAStream {
  * or 'CUDAStreamGuard'.
  */
 inline CUDAStream getCurrentCUDAStream(DeviceIndex device_index = -1) {
-  // if (device_index == -1) {
-  //   device_index = phi::backends::gpu::GetCurrentDeviceId();
-  // }
+  if (device_index == -1) {
+    device_index = phi::backends::gpu::GetCurrentDeviceId();
+  }
 
-  // return CUDAStream(paddle::GetCurrentCUDAStream(phi::GPUPlace(device_index))->raw_stream());
-  LOG(FATAL) << "getCurrentCUDAStream is not implemented";
-  return *(CUDAStream*)nullptr;
+  return CUDAStream(paddle::GetCurrentCUDAStream(phi::GPUPlace(device_index))->raw_stream());
+  // LOG(FATAL) << "getCurrentCUDAStream is not implemented";
+  // return *(CUDAStream*)nullptr;
 }
 
 inline CUDAStream getStreamFromPool(const bool isHighPriority = false, DeviceIndex device = -1) {
@@ -64,7 +66,7 @@ inline CUDAStream getStreamFromPool(const bool isHighPriority = false, DeviceInd
   return *(CUDAStream*)nullptr;
 }
 
-inline void setCurrentCUDAStream(CUDAStream stream) {
+inline void setCurrentCUDAStream(cudaStream_t stream) {
   LOG(FATAL) << "setCurrentCUDAStream is not implemented";
 }
 

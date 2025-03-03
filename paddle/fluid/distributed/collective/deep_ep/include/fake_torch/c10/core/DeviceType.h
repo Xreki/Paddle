@@ -1,6 +1,7 @@
 #pragma once
 
 namespace torch {
+
 enum class DeviceType : int8_t {
   CPU = 0,
   CUDA = 1, // CUDA.
@@ -31,4 +32,5 @@ enum class DeviceType : int8_t {
 };
 
 constexpr DeviceType kCUDA = DeviceType::CUDA;
+
 }

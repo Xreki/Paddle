@@ -3,7 +3,7 @@ import paddle
 import paddle.distributed as dist
 from typing import Callable, List, Tuple, Optional, Union
 
-from .utils import EventOverlap
+from .utils import EventOverlap, EventHandle
 from paddle.base.core import Buffer as CppBuffer
 from paddle.base.core import Config
 from paddle.distributed.communication.group import Group
@@ -51,15 +51,15 @@ class Buffer:
         self.num_nvl_bytes = num_nvl_bytes
         self.num_rdma_bytes = num_rdma_bytes
         self.low_latency_mode = low_latency_mode
-        self.runtime = CppBuffer(self.rank, self.group_size, num_nvl_bytes, num_rdma_bytes, low_latency_mode)
+        self.runtime = CppBuffer(self.rank, self.group_size, num_nvl_bytes, num_rdma_bytes, low_latency_mode, group.id)
 
         # Synchronize device IDs
-        device_ids = [None, ] * self.group_size
+        device_ids = []
         local_device_id = self.runtime.get_local_device_id()
         dist.all_gather_object(device_ids, local_device_id, group)
 
         # Synchronize IPC handles
-        ipc_handles = [None, ] * self.group_size
+        ipc_handles = []
         local_ipc_handle = self.runtime.get_local_ipc_handle()
         dist.all_gather_object(ipc_handles, local_ipc_handle, group)
 
@@ -298,7 +298,7 @@ class Buffer:
         if handle is not None:
             assert topk_idx is None and topk_weights is None
             rank_prefix_matrix, channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx, is_token_in_rank, send_head = handle
-            num_recv_tokens = recv_src_idx.size(0)
+            num_recv_tokens = recv_src_idx.shape[0]
             recv_x, recv_x_scales, _, _, _, _, _, _, _, _, event = self.runtime.intranode_dispatch(
                 x, x_scales, None, None,
                 None, is_token_in_rank, None, num_recv_tokens, rank_prefix_matrix, channel_prefix_matrix,

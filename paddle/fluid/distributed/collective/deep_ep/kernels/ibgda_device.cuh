@@ -64,7 +64,8 @@ typedef struct mlx5_wqe_ctrl_seg __attribute__((__aligned__(8))) ibgda_ctrl_seg_
 
 __device__ static __forceinline__
 nvshmemi_ibgda_device_state_t* ibgda_get_state() {
-    return &nvshmemi_ibgda_device_state_d;
+    // return &nvshmemi_ibgda_device_state_d;
+    return nullptr;
 }
 
 __device__ static __forceinline__
