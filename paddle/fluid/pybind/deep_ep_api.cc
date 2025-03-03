@@ -17,6 +17,7 @@
 
 #include "paddle/fluid/pybind/deep_ep_api.h"
 #include "paddle/fluid/distributed/collective/deep_ep/deep_ep.hpp"
+#include "paddle/utils/pybind.h"
 
 namespace py = pybind11;
 
@@ -39,16 +40,26 @@ void BindDeepEPApi(pybind11::module *m) {
       .def("current_stream_wait", &deep_ep::EventHandle::current_stream_wait);
 
   pybind11::class_<deep_ep::Buffer>(*m, "Buffer")
-      .def(pybind11::init<int, int, int64_t, int64_t, bool>())
-    //   .def("is_available", &deep_ep::Buffer::is_available)
+      .def(pybind11::init<int, int, int64_t, int64_t, bool, int>())
+      .def("is_available", &deep_ep::Buffer::is_available)
       .def("get_num_rdma_ranks", &deep_ep::Buffer::get_num_rdma_ranks)
       .def("get_rdma_rank", &deep_ep::Buffer::get_rdma_rank)
       .def("get_root_rdma_rank", &deep_ep::Buffer::get_root_rdma_rank)
-    //   .def("get_local_device_id", &deep_ep::Buffer::get_local_device_id)
-    //   .def("get_local_ipc_handle", &deep_ep::Buffer::get_local_ipc_handle)
+      .def("get_local_device_id", &deep_ep::Buffer::get_local_device_id)
+      .def("get_local_ipc_handle", &deep_ep::Buffer::get_local_ipc_handle)
     //   .def("get_local_buffer_tensor", &deep_ep::Buffer::get_local_buffer_tensor)
       .def("sync", &deep_ep::Buffer::sync)
-      .def("get_dispatch_layout", &deep_ep::Buffer::get_dispatch_layout_api)
+      .def(
+        "get_dispatch_layout", 
+        [](deep_ep::Buffer &self,
+           py::handle topk_idx, 
+           int num_experts, 
+           std::optional<deep_ep::EventHandle>& previous_event,
+           bool async,
+           bool allocate_on_comm_stream) {
+          auto topk_idx_tensor = CastPyArg2Tensor(topk_idx.ptr(), 0);
+          return self.get_dispatch_layout_api(topk_idx_tensor, num_experts, previous_event, async, allocate_on_comm_stream);
+        }) 
       .def("intranode_dispatch", &deep_ep::Buffer::intranode_dispatch_api)
       .def("intranode_combine", &deep_ep::Buffer::intranode_combine_api);
 }

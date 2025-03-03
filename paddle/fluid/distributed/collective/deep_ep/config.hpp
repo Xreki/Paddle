@@ -1,6 +1,6 @@
 #pragma once
 
-// #include "kernels/api.cuh"
+#include "kernels/api.cuh"
 #include "kernels/exception.cuh"
 
 namespace deep_ep {
