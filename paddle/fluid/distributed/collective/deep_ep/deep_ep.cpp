@@ -776,10 +776,14 @@ Buffer::internode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
                                  num_nvl_bytes, true, low_latency_mode);
         move_fifo_slots(2);
     } else {
-        rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        recv_rdma_rank_prefix_sum = torch::empty({num_rdma_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        recv_gbl_rank_prefix_sum = torch::empty({num_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        // rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        rdma_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_rdma_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // recv_rdma_rank_prefix_sum = torch::empty({num_rdma_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        recv_rdma_rank_prefix_sum = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_rdma_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        gbl_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // recv_gbl_rank_prefix_sum = torch::empty({num_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        recv_gbl_rank_prefix_sum = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
         // Send sizes
         *moe_recv_counter = -1, *moe_recv_rdma_counter = -1;
@@ -826,7 +830,8 @@ Buffer::internode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
     }            
 
     // Allocate new tensors
-    auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
+    // auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
+    auto recv_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, hidden}, x.dtype(), x.place()));
     auto recv_topk_idx = std::optional<torch::Tensor>(), recv_topk_weights = std::optional<torch::Tensor>(), recv_x_scales = std::optional<torch::Tensor>();
     auto recv_src_meta = std::optional<torch::Tensor>();
     auto recv_rdma_channel_prefix_matrix = std::optional<torch::Tensor>();
@@ -834,11 +839,16 @@ Buffer::internode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
     auto send_rdma_head = std::optional<torch::Tensor>();
     auto send_nvl_head = std::optional<torch::Tensor>();
     if (not cached_mode) {
-        recv_src_meta = torch::empty({num_recv_tokens, internode::get_source_meta_bytes()}, torch::dtype(torch::kByte).device(torch::kCUDA));
-        recv_rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        recv_gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        send_rdma_head = torch::empty({num_tokens, num_rdma_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-        send_nvl_head = torch::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        // recv_src_meta = torch::empty({num_recv_tokens, internode::get_source_meta_bytes()}, torch::dtype(torch::kByte).device(torch::kCUDA));
+        recv_src_meta = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, internode::get_source_meta_bytes()}, phi::DataType::INT8, phi::GPUPlace(device_id)));
+        // recv_rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        recv_rdma_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_rdma_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // recv_gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // send_rdma_head = torch::empty({num_tokens, num_rdma_ranks}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_ranks, num_channels}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+        // send_nvl_head = torch::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+        send_nvl_head = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS}, phi::DataType::INT32, phi::GPUPlace(device_id)));
     }
 
     // Assign pointers
@@ -846,15 +856,20 @@ Buffer::internode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
     float* recv_topk_weights_ptr = nullptr;
     float* recv_x_scales_ptr = nullptr;
     if (topk_idx.has_value()) {
-        recv_topk_idx = torch::empty({num_recv_tokens, num_topk}, topk_idx->options());
-        recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
+        // recv_topk_idx = torch::empty({num_recv_tokens, num_topk}, topk_idx->options());
+        recv_topk_idx = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_idx->dtype(), topk_idx->place()));
+        // recv_topk_weights = torch::empty({num_recv_tokens, num_topk}, topk_weights->options());
+        recv_topk_weights = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_topk}, topk_weights->dtype(), topk_weights->place()));
         recv_topk_idx_ptr = recv_topk_idx->data_ptr<int64_t>();
         recv_topk_weights_ptr = recv_topk_weights->data_ptr<float>();
     }
     if (x_scales.has_value()) {
+        // recv_x_scales = x_scales->dim() == 1 ?
+        //                 torch::empty({num_recv_tokens}, x_scales->options()) :
+        //                 torch::empty({num_recv_tokens, num_scales}, x_scales->options());
         recv_x_scales = x_scales->dim() == 1 ?
-                        torch::empty({num_recv_tokens}, x_scales->options()) :
-                        torch::empty({num_recv_tokens, num_scales}, x_scales->options());
+                        ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens}, x_scales->dtype(), x_scales->place())) :
+                        ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_recv_tokens, num_scales}, x_scales->dtype(), x_scales->place()));
         recv_x_scales_ptr = recv_x_scales->data_ptr<float>();
     }
 
@@ -969,7 +984,8 @@ Buffer::internode_combine(const torch::Tensor& x, const std::optional<torch::Ten
         EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
         num_topk = static_cast<int>(topk_weights->size(1));
         topk_weights_ptr = topk_weights->data_ptr<float>();
-        combined_topk_weights = torch::empty({num_combined_tokens, num_topk}, topk_weights->options());
+        // combined_topk_weights = torch::empty({num_combined_tokens, num_topk}, topk_weights->options());
+        combined_topk_weights = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_combined_tokens, num_topk}, topk_weights->dtype(), topk_weights->place()));
         combined_topk_weights_ptr = combined_topk_weights->data_ptr<float>();
     }
 
@@ -990,7 +1006,8 @@ Buffer::internode_combine(const torch::Tensor& x, const std::optional<torch::Ten
     move_fifo_slots(2);
 
     // Launch data combine
-    auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
+    // auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
+    auto combined_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_combined_tokens, hidden}, x.dtype(), x.place()));
     internode::combine(at::cuda::ScalarTypeToCudaDataType(x.scalar_type()),
                        combined_x.data_ptr(), combined_topk_weights_ptr,
                        is_combined_token_in_rank.data_ptr<bool>(),
@@ -1085,16 +1102,22 @@ Buffer::low_latency_dispatch(const torch::Tensor& x, const torch::Tensor& topk_i
         stream_wait(launch_stream, compute_stream);
 
     // Allocate packed tensors
-    auto packed_recv_x = torch::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank, hidden}, x.options().dtype(torch::kFloat8_e4m3fn));
-    auto packed_recv_src_info = torch::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank}, torch::dtype(torch::kInt32).device(torch::kCUDA));
-    auto packed_recv_layout_range = torch::empty({num_local_experts, num_ranks}, torch::dtype(torch::kInt64).device(torch::kCUDA));
+    // auto packed_recv_x = torch::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank, hidden}, x.options().dtype(torch::kFloat8_e4m3fn));
+    auto packed_recv_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank, hidden}, phi::DataType::FLOAT8_E4M3FN, x.place()));
+    // auto packed_recv_src_info = torch::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+    auto packed_recv_src_info = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+    // auto packed_recv_layout_range = torch::empty({num_local_experts, num_ranks}, torch::dtype(torch::kInt64).device(torch::kCUDA));
+    auto packed_recv_layout_range = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_local_experts, num_ranks}, phi::DataType::INT64, phi::GPUPlace(device_id)));
     auto packed_recv_count = torch::from_blob(buffer.dispatch_rdma_atomic_token_counter,
                                               {num_local_experts}, torch::dtype(torch::kInt32).device(torch::kCUDA));
 
     // Allocate column-majored scales
     EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 and "TMA requires the number of tokens to be multiple of 4");
-    auto packed_recv_x_scales = torch::empty({num_local_experts, num_scales, num_ranks * num_max_dispatch_tokens_per_rank}, torch::dtype(torch::kFloat32).device(torch::kCUDA));
-    packed_recv_x_scales = torch::transpose(packed_recv_x_scales, 1, 2);
+    // auto packed_recv_x_scales = torch::empty({num_local_experts, num_scales, num_ranks * num_max_dispatch_tokens_per_rank}, torch::dtype(torch::kFloat32).device(torch::kCUDA));
+    auto packed_recv_x_scales = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_local_experts, num_scales, num_ranks * num_max_dispatch_tokens_per_rank}, phi::DataType::FLOAT32, phi::GPUPlace(device_id)));
+    // packed_recv_x_scales = torch::transpose(packed_recv_x_scales, 1, 2);
+    packed_recv_x_scales = ConvertPaddleTensorToFakeTorchTensor(
+        paddle::experimental::transpose(ConvertFakeTorchTensorToPaddleTensor(packed_recv_x_scales), std::vector<int>{1, 2}));
 
     // Kernel launch
     auto next_clean_meta = next_buffer.clean_meta();
@@ -1174,7 +1197,8 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
         stream_wait(launch_stream, compute_stream);
 
     // Allocate output tensor
-    auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
+    // auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
+    auto combined_x = ConvertPaddleTensorToFakeTorchTensor(paddle::experimental::empty({num_combined_tokens, hidden}, x.dtype(), x.place()));
 
     // Kernel launch
     auto next_clean_meta = next_buffer.clean_meta();
@@ -1556,6 +1580,15 @@ std::optional<paddle::Tensor> ConvertOptionalFakeTorchTensorToPaddleTensor(const
   }
   return res;
 }
+
+// paddle::Tensor MakePaddleTensorFromBlob(const void* dataptr, const std::vector<int64_t>& shape, phi::DataType dtype, const phi::Place& place) {
+//   auto tensor = std::make_shared<phi::DenseTensor>();
+// 
+//   paddle::Tensor out;
+//   out.set_impl(tensor_ptr);
+//     auto packed_recv_count = torch::from_blob(buffer.dispatch_rdma_atomic_token_counter,
+//                                               {num_local_experts}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+// }
 
 } // namespace deep_ep
 
