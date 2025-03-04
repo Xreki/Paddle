@@ -3,9 +3,7 @@ add_subdirectory(deep_ep)
 cc_library(
   process_group
   SRCS process_group.cc
-  DEPS phi common xxhash)
-
-target_link_libraries(process_group deep_ep)
+  DEPS phi common xxhash deep_ep)
 
 cc_library(
   eager_reducer

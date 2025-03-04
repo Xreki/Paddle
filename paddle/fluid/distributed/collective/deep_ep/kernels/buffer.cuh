@@ -1,7 +1,7 @@
 #pragma once
 
-#include "configs.cuh"
-#include "exception.cuh"
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
 
 namespace deep_ep {
 

@@ -1,7 +1,13 @@
-#include "configs.cuh"
-#include "exception.cuh"
-#include "launch.cuh"
-#include "ibgda_device.cuh"
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#include <infiniband/mlx5dv.h>
+#include <non_abi/device/threadgroup/nvshmemi_common_device_defines.cuh>
+#include <device_host_transport/nvshmem_common_ibgda.h>
+
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/launch.cuh"
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/ibgda_device.cuh"
 
 namespace deep_ep {
 

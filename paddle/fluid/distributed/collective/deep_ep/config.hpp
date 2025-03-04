@@ -38,53 +38,53 @@ struct Config {
         this->num_max_rdma_chunked_recv_tokens = align<int>(num_max_rdma_chunked_recv_tokens, num_max_rdma_chunked_send_tokens);
     }
 
-    // size_t get_nvl_buffer_size_hint(size_t hidden_bytes, int num_ranks) const {
-    //     // Below are some assumptions
-    //     // TODO: add assertions
-    //     constexpr int kNumMaxTopK = 128;
-    //     constexpr int kNumMaxScales = 128;
-    //     EP_HOST_ASSERT(num_ranks < NUM_MAX_NVL_PEERS or num_ranks % NUM_MAX_NVL_PEERS == 0);
-    //     EP_HOST_ASSERT(num_ranks <= NUM_MAX_NVL_PEERS or num_sms % 2 == 0);
-    //     const auto num_rdma_ranks = std::max(num_ranks / NUM_MAX_NVL_PEERS, 1);
-    //     const auto num_nvl_ranks = std::min(num_ranks, NUM_MAX_NVL_PEERS);
-    //     const int num_channels = num_sms / 2;
+    size_t get_nvl_buffer_size_hint(size_t hidden_bytes, int num_ranks) const {
+        // Below are some assumptions
+        // TODO: add assertions
+        constexpr int kNumMaxTopK = 128;
+        constexpr int kNumMaxScales = 128;
+        EP_HOST_ASSERT(num_ranks < NUM_MAX_NVL_PEERS or num_ranks % NUM_MAX_NVL_PEERS == 0);
+        EP_HOST_ASSERT(num_ranks <= NUM_MAX_NVL_PEERS or num_sms % 2 == 0);
+        const auto num_rdma_ranks = std::max(num_ranks / NUM_MAX_NVL_PEERS, 1);
+        const auto num_nvl_ranks = std::min(num_ranks, NUM_MAX_NVL_PEERS);
+        const int num_channels = num_sms / 2;
 
-    //     size_t num_bytes = 0;
-    //     num_bytes += num_channels * num_nvl_ranks * (2 * num_rdma_ranks + 3) * sizeof(int);
-    //     num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * hidden_bytes;
-    //     num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * internode::get_source_meta_bytes();
-    //     num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxTopK * sizeof(int64_t);
-    //     num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxTopK * sizeof(float);
-    //     num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxScales * sizeof(float);
-    //     num_bytes = ((num_bytes + 127) / 128) * 128;
-    //     return num_bytes;
-    // }
+        size_t num_bytes = 0;
+        num_bytes += num_channels * num_nvl_ranks * (2 * num_rdma_ranks + 3) * sizeof(int);
+        num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * hidden_bytes;
+        num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * internode::get_source_meta_bytes();
+        num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxTopK * sizeof(int64_t);
+        num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxTopK * sizeof(float);
+        num_bytes += num_channels * num_nvl_ranks * num_max_nvl_chunked_recv_tokens * kNumMaxScales * sizeof(float);
+        num_bytes = ((num_bytes + 127) / 128) * 128;
+        return num_bytes;
+    }
 
-    // size_t get_rdma_buffer_size_hint(int64_t hidden_bytes, int num_ranks) const {
-    //     // Legacy mode
-    //     if (num_ranks <= NUM_MAX_NVL_PEERS)
-    //         return 0;
+    size_t get_rdma_buffer_size_hint(int64_t hidden_bytes, int num_ranks) const {
+        // Legacy mode
+        if (num_ranks <= NUM_MAX_NVL_PEERS)
+            return 0;
 
-    //     // Below are some assumptions
-    //     // TODO: add assertions
-    //     constexpr int kNumMaxTopK = 128;
-    //     constexpr int kNumMaxScales = 128;
-    //     EP_HOST_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0);
-    //     EP_HOST_ASSERT(num_sms % 2 == 0);
-    //     const int num_rdma_ranks = num_ranks / NUM_MAX_NVL_PEERS;
-    //     const int num_channels = num_sms / 2;
+        // Below are some assumptions
+        // TODO: add assertions
+        constexpr int kNumMaxTopK = 128;
+        constexpr int kNumMaxScales = 128;
+        EP_HOST_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0);
+        EP_HOST_ASSERT(num_sms % 2 == 0);
+        const int num_rdma_ranks = num_ranks / NUM_MAX_NVL_PEERS;
+        const int num_channels = num_sms / 2;
 
-    //     size_t num_bytes = 0;
-    //     num_bytes += num_channels * num_rdma_ranks * (NUM_MAX_NVL_PEERS * 2 + 2) * 2 * sizeof(int);
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * hidden_bytes * 2;
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * internode::get_source_meta_bytes() * 2;
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(int64_t) * 2;
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(float) * 2;
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxScales * sizeof(float) * 2;
-    //     num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * sizeof(int4) * 2;
-    //     num_bytes = ((num_bytes + 127) / 128) * 128;
-    //     return num_bytes;
-    // }
+        size_t num_bytes = 0;
+        num_bytes += num_channels * num_rdma_ranks * (NUM_MAX_NVL_PEERS * 2 + 2) * 2 * sizeof(int);
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * hidden_bytes * 2;
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * internode::get_source_meta_bytes() * 2;
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(int64_t) * 2;
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(float) * 2;
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxScales * sizeof(float) * 2;
+        num_bytes += num_channels * num_rdma_ranks * num_max_rdma_chunked_recv_tokens * sizeof(int4) * 2;
+        num_bytes = ((num_bytes + 127) / 128) * 128;
+        return num_bytes;
+    }
 };
 
 struct LowLatencyBuffer {
@@ -124,7 +124,7 @@ struct LowLatencyLayout {
         //  - 2 symmetric odd/even signaling buffers
 
         // Message sizes
-        EP_HOST_ASSERT(num_scales * sizeof(float) <= hidden);
+        EP_HOST_ASSERT(num_scales * static_cast<int>(sizeof(float)) <= hidden);
         size_t num_bytes_per_dispatch_msg = hidden + num_scales * sizeof(float) + sizeof(int4);
         size_t num_bytes_per_combine_msg = sizeof(int4) + hidden * sizeof(nv_bfloat16);
 
