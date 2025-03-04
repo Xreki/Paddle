@@ -23,7 +23,7 @@ class TensorOptions {
 
 namespace torch {
 
-c10::TensorOptions dtype(c10::ScalarType dtype) noexcept {
+inline c10::TensorOptions dtype(c10::ScalarType dtype) noexcept {
   LOG(FATAL) << "Not implemented";
   return c10::TensorOptions();
 }

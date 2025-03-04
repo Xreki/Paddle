@@ -5,7 +5,9 @@
 //
 // Modified from original source:
 //  - nvshmem/src/include/non_abi/device/pt-to-pt/ibgda_device.cuh
-#pragma once
+
+#ifndef _NVSHMEMI_IBGDA_DEVICE_H_
+#define _NVSHMEMI_IBGDA_DEVICE_H_
 
 #include "configs.cuh"
 #include "exception.cuh"
@@ -422,3 +424,4 @@ nvshmemi_ibgda_put_nbi_warp(uint64_t req_rptr, uint64_t req_lptr, size_t bytes, 
 }
 
 } // namespace deep_ep
+#endif

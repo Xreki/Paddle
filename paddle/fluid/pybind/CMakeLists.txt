@@ -148,11 +148,14 @@ set(PYBIND_SRCS
     op_callstack_utils.cc
     python_callable_registry.cc)
 
-#ifdef PADDLE_WITH_DISTRIBUTE
-set(PYBIND_SRCS ${PYBIND_SRCS} dist_api.cc)
-set(PYBIND_DEPS ${PYBIND_DEPS} deep_ep)
-set(PYBIND_SRCS ${PYBIND_SRCS} deep_ep_api.cc)
-#endif
+if(WITH_DISTRIBUTE)
+  set(PYBIND_SRCS ${PYBIND_SRCS} dist_api.cc)
+  set(PYBIND_DEPS ${PYBIND_DEPS} deep_ep)
+  set(PYBIND_SRCS ${PYBIND_SRCS} deep_ep_api.cc)
+  if(WITH_NVSHMEM)
+    set(PYBIND_DEPS ${PYBIND_DEPS} nvshmem)
+  endif()
+endif()
 
 if(NOT WITH_SHARED_IR)
   # Note: We want to compile pir source into paddle.so directly, because
@@ -679,6 +682,7 @@ if(WITH_PYTHON)
   # add a prefix `lib` by default, but on Windows, cc_library(paddle SHARED ..)
   # will not add prefix, so it generate paddle.lib and paddle.pyd,
   # we need to pay attention to the difference
+  message(STATUS "PYBIND_DEPS: ${PYBIND_DEPS}")
   set(SHARD_LIB_NAME paddle)
   if(WIN32)
     set(SHARD_LIB_NAME libpaddle)

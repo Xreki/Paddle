@@ -34,9 +34,6 @@ message(STATUS "NVSHMEM_INSTALL_DIR: ${NVSHMEM_INSTALL_DIR}")
 set(NVSHMEM_INCLUDE_DIR
     "${NVSHMEM_INSTALL_DIR}/include"
     CACHE PATH "nvshmem include directory." FORCE)
-set(NVSHMEM_LIBRARIES
-    "${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a"
-    CACHE FILEPATH "NVSHMEM_LIBRARIES" FORCE)
 
 include_directories(${NVSHMEM_INCLUDE_DIR})
 
@@ -64,6 +61,7 @@ ExternalProject_Add(
   UPDATE_COMMAND ""
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${NVSHMEM_INSTALL_DIR}
              -DGDRCOPY_HOME:PATH=${GDRCOPY_HOME}
+             -DNVSHMEM_ENABLE_ALL_DEVICE_INLINING=0
              -DNVSHMEM_SHMEM_SUPPORT=0
              -DNVSHMEM_UCX_SUPPORT=0
              -DNVSHMEM_USE_NCCL=0
@@ -76,5 +74,12 @@ ExternalProject_Add(
   BUILD_BYPRODUCTS ${NVSHMEM_LIBRARIES})
 
 add_library(nvshmem STATIC IMPORTED GLOBAL)
-set_property(TARGET nvshmem PROPERTY IMPORTED_LOCATION ${NVSHMEM_LIBRARIES})
+set_property(TARGET nvshmem PROPERTY IMPORTED_LOCATION
+                                     ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
 add_dependencies(nvshmem extern_nvshmem)
+
+add_library(nvshmem_device STATIC IMPORTED GLOBAL)
+set_property(
+  TARGET nvshmem_device PROPERTY IMPORTED_LOCATION
+                                 ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem_device.a)
+add_dependencies(nvshmem_device extern_nvshmem)
