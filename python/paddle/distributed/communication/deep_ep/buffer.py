@@ -132,7 +132,7 @@ class Buffer:
     #     return deep_ep_cpp.get_low_latency_rdma_size_hint(num_max_dispatch_tokens_per_rank, hidden, num_ranks, num_experts)
 
     # def get_local_buffer_tensor(self, dtype: torch.dtype, size: Optional[torch.Size] = None,
-    #                             offset: int = 0, use_rdma_buffer: bool = False) -> torch.Tensor:
+    #                             offset: int = 0, use_rdma_buffer: bool = False) -> paddle.Tensor:
     #     """
     #     Get the raw buffer (slice supported) as a PyTorch tensor.
 
@@ -252,7 +252,7 @@ class Buffer:
             index should be visible via RDMA. AR must be disabled.
 
         Arguments:
-            x: `torch.Tensor` or tuple of `torch.Tensor`, for the first type, the shape must be `[num_tokens, hidden]`,
+            x: `paddle.Tensor` or tuple of `paddle.Tensor`, for the first type, the shape must be `[num_tokens, hidden]`,
                 and type must be `torch.bfloat16`; for the second type, the first element of the tuple must be shaped as
                 `[num_tokens, hidden]` with type `torch.float8_e4m3fn`, the second must be `[num_tokens, hidden // 128]`
                  (requiring divisible) with type `torch.float`.
@@ -359,16 +359,16 @@ class Buffer:
         return recv_x, recv_topk_weights, EventOverlap(event)
 
     # noinspection PyTypeChecker
-    def internode_dispatch(self, x: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+    def internode_dispatch(self, x: Union[paddle.Tensor, Tuple[paddle.Tensor, paddle.Tensor]],
                            handle: Optional[Tuple] = None,
-                           num_tokens_per_rank: Optional[torch.Tensor] = None, num_tokens_per_rdma_rank: Optional[torch.Tensor] = None,
-                           is_token_in_rank: Optional[torch.Tensor] = None, num_tokens_per_expert: Optional[torch.Tensor] = None,
-                           topk_idx: Optional[torch.Tensor] = None, topk_weights: Optional[torch.Tensor] = None, expert_alignment: int = 1,
+                           num_tokens_per_rank: Optional[paddle.Tensor] = None, num_tokens_per_rdma_rank: Optional[paddle.Tensor] = None,
+                           is_token_in_rank: Optional[paddle.Tensor] = None, num_tokens_per_expert: Optional[paddle.Tensor] = None,
+                           topk_idx: Optional[paddle.Tensor] = None, topk_weights: Optional[paddle.Tensor] = None, expert_alignment: int = 1,
                            config: Optional[Config] = None,
                            previous_event: Optional[EventOverlap] = None, async_finish: bool = False,
                            allocate_on_comm_stream: bool = False) -> \
-            Tuple[Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor], Optional[torch.Tensor],
-            Optional[torch.Tensor], List[int], Tuple, EventOverlap]:
+            Tuple[Union[Tuple[paddle.Tensor, paddle.Tensor], paddle.Tensor], Optional[paddle.Tensor],
+            Optional[paddle.Tensor], List[int], Tuple, EventOverlap]:
         """
         Internode dispatch implementation, for more details, please refer to the `dispatch` docs.
         Normally, you should not directly call this function.
@@ -410,12 +410,12 @@ class Buffer:
             return (recv_x, recv_x_scales) if x_scales is not None else recv_x, recv_topk_idx, recv_topk_weights, num_recv_tokens_per_expert_list, handle, EventOverlap(event)
 
     # noinspection PyTypeChecker
-    def internode_combine(self, x: torch.Tensor, handle: Union[tuple, list],
-                          topk_weights: Optional[torch.Tensor] = None,
+    def internode_combine(self, x: paddle.Tensor, handle: Union[tuple, list],
+                          topk_weights: Optional[paddle.Tensor] = None,
                           config: Optional[Config] = None,
                           previous_event: Optional[EventOverlap] = None, async_finish: bool = False,
                           allocate_on_comm_stream: bool = False) -> \
-            Tuple[torch.Tensor, Optional[torch.Tensor], EventOverlap]:
+            Tuple[paddle.Tensor, Optional[paddle.Tensor], EventOverlap]:
         """
         Internode combine implementation, for more details, please refer to the `combine` docs.
         Normally, you should not directly call this function.
@@ -452,10 +452,10 @@ class Buffer:
         self.runtime.clean_low_latency_buffer(num_max_dispatch_tokens_per_rank, hidden, num_experts)
 
     # noinspection PyTypeChecker
-    def low_latency_dispatch(self, x: torch.Tensor, topk_idx: torch.Tensor,
+    def low_latency_dispatch(self, x: paddle.Tensor, topk_idx: paddle.Tensor,
                              num_max_dispatch_tokens_per_rank: int, num_experts: int,
                              async_finish: bool = False, return_recv_hook: bool = False) -> \
-            Tuple[Tuple[torch.Tensor, torch.Tensor], torch.Tensor, Tuple, EventOverlap, Callable]:
+            Tuple[Tuple[paddle.Tensor, paddle.Tensor], paddle.Tensor, Tuple, EventOverlap, Callable]:
         """
         A low-latency implementation for dispatching with IBGDA **with implicit FP8 casting**.
         This kernel requires all the ranks (no matter intranode or internode) should be visible via RDMA
@@ -465,9 +465,9 @@ class Buffer:
             low-latency kernels' result tensor at a single moment.
 
         Arguments:
-            x: `torch.Tensor` with `torch.bfloat16`, shaped as `[num_tokens, hidden]`, only several hidden shapes are
+            x: `paddle.Tensor` with `torch.bfloat16`, shaped as `[num_tokens, hidden]`, only several hidden shapes are
                 supported. The number of tokens to be dispatched must be less than `num_max_dispatch_tokens_per_rank`.
-            topk_idx: `torch.Tensor` with `torch.int64`, shaped as `[num_tokens, num_topk]`, only several top-k shapes
+            topk_idx: `paddle.Tensor` with `torch.int64`, shaped as `[num_tokens, num_topk]`, only several top-k shapes
                 are supported. `-1` indices (not selecting any expert) are supported.
             num_max_dispatch_tokens_per_rank: the maximum number of tokens to dispatch, all the ranks must hold the same value.
             num_experts: the number of all experts.
@@ -477,7 +477,7 @@ class Buffer:
                 If you not set this flag, the kernel will ensure the data's arrival.
 
         Returns:
-            recv_x: a tuple with received tokens for each expert. The first element is a `torch.Tensor` shaped as
+            recv_x: a tuple with received tokens for each expert. The first element is a `paddle.Tensor` shaped as
                 `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `torch.float8_e4m3fn`.
                 The second tensor is the corresponding scales for the first element with shape
                 `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden // 128]` with `torch.float`.
@@ -502,9 +502,9 @@ class Buffer:
             EventOverlap(event, tensors_to_record if async_finish else None), hook
 
     # noinspection PyTypeChecker
-    def low_latency_combine(self, x: torch.Tensor, topk_idx: torch.Tensor, topk_weights: torch.Tensor,
+    def low_latency_combine(self, x: paddle.Tensor, topk_idx: paddle.Tensor, topk_weights: paddle.Tensor,
                             handle: tuple, async_finish: bool = False, return_recv_hook: bool = False) -> \
-            Tuple[torch.Tensor, EventOverlap, Callable]:
+            Tuple[paddle.Tensor, EventOverlap, Callable]:
         """
         A low-latency implementation for combining tokens (reduce **with weights**) with IBGDA.
         This kernel requires all the ranks (no matter intranode or internode) should be visible via RDMA

@@ -6,8 +6,7 @@
 // Modified from original source:
 //  - nvshmem/src/include/non_abi/device/pt-to-pt/ibgda_device.cuh
 
-#ifndef _NVSHMEMI_IBGDA_DEVICE_H_
-#define _NVSHMEMI_IBGDA_DEVICE_H_
+#pragma once
 
 #include "configs.cuh"
 #include "exception.cuh"
@@ -66,8 +65,7 @@ typedef struct mlx5_wqe_ctrl_seg __attribute__((__aligned__(8))) ibgda_ctrl_seg_
 
 __device__ static __forceinline__
 nvshmemi_ibgda_device_state_t* ibgda_get_state() {
-    // return &nvshmemi_ibgda_device_state_d;
-    return nullptr;
+    return &nvshmemi_ibgda_device_state_d;
 }
 
 __device__ static __forceinline__
@@ -424,4 +422,3 @@ nvshmemi_ibgda_put_nbi_warp(uint64_t req_rptr, uint64_t req_lptr, size_t bytes, 
 }
 
 } // namespace deep_ep
-#endif
