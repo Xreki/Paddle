@@ -52,26 +52,32 @@ struct Config {
         num_max_rdma_chunked_send_tokens(num_max_rdma_chunked_send_tokens),
         num_max_rdma_chunked_recv_tokens(num_max_rdma_chunked_recv_tokens) {
     EP_HOST_ASSERT(num_sms >= 0);
-    EP_HOST_ASSERT(num_max_nvl_chunked_send_tokens > 0 &&
-                   num_max_nvl_chunked_recv_tokens > 0);  // NOLINT
+    EP_HOST_ASSERT(num_max_nvl_chunked_send_tokens > 0 and
+                   num_max_nvl_chunked_recv_tokens > 0);
     EP_HOST_ASSERT(num_max_nvl_chunked_send_tokens <
                    num_max_nvl_chunked_recv_tokens);
-    EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens > 0 &&
-                   num_max_rdma_chunked_recv_tokens > 0);  // NOLINT
-    EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens <
-                   num_max_rdma_chunked_recv_tokens);
+    EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens > 0 and
+                   num_max_rdma_chunked_recv_tokens > 0);
+
+    // Ceil up RDMA buffer size
     this->num_max_rdma_chunked_recv_tokens = align<int>(
         num_max_rdma_chunked_recv_tokens, num_max_rdma_chunked_send_tokens);
+    EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens <
+                   num_max_rdma_chunked_recv_tokens);
+    // NOTES: this assertion is related to RDMA lazy head update, we must ensure
+    // senders always have space to push
+    EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens <=
+                   num_max_rdma_chunked_recv_tokens / 2);
   }
 
   size_t get_nvl_buffer_size_hint(size_t hidden_bytes, int num_ranks) const {
     // Below are some assumptions
-    // TODO(Honqing-work): add assertions
+    // TODO: add assertions
     constexpr int kNumMaxTopK = 128;
     constexpr int kNumMaxScales = 128;
-    EP_HOST_ASSERT(num_ranks < NUM_MAX_NVL_PEERS ||
+    EP_HOST_ASSERT(num_ranks < NUM_MAX_NVL_PEERS or
                    num_ranks % NUM_MAX_NVL_PEERS == 0);
-    EP_HOST_ASSERT(num_ranks <= NUM_MAX_NVL_PEERS || num_sms % 2 == 0);
+    EP_HOST_ASSERT(num_ranks <= NUM_MAX_NVL_PEERS or num_sms % 2 == 0);
     const auto num_rdma_ranks = std::max(num_ranks / NUM_MAX_NVL_PEERS, 1);
     const auto num_nvl_ranks = std::min(num_ranks, NUM_MAX_NVL_PEERS);
     const int num_channels = num_sms / 2;
@@ -101,7 +107,7 @@ struct Config {
     if (num_ranks <= NUM_MAX_NVL_PEERS) return 0;
 
     // Below are some assumptions
-    // TODO(Xreki): add assertions
+    // TODO: add assertions
     constexpr int kNumMaxTopK = 128;
     constexpr int kNumMaxScales = 128;
     EP_HOST_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0);
@@ -139,7 +145,6 @@ struct LowLatencyBuffer {
   void* dispatch_rdma_send_buffer = nullptr;
   void* dispatch_rdma_recv_data_buffer = nullptr;
   int* dispatch_rdma_recv_count_buffer = nullptr;
-  int* dispatch_rdma_atomic_token_counter = nullptr;
 
   void* combine_rdma_send_buffer = nullptr;
   void* combine_rdma_recv_data_buffer = nullptr;
@@ -178,7 +183,7 @@ struct LowLatencyLayout {
     //  - 2 symmetric odd/even signaling buffers
 
     // Message sizes
-    EP_HOST_ASSERT(num_scales * static_cast<int>(sizeof(float)) <= hidden);
+    EP_HOST_ASSERT(num_scales * sizeof(float) <= hidden);
     size_t num_bytes_per_dispatch_msg =
         hidden + num_scales * sizeof(float) + sizeof(int4);
     size_t num_bytes_per_combine_msg =
@@ -196,7 +201,7 @@ struct LowLatencyLayout {
     total_bytes += send_buffer_bytes * 2;
 
     // Symmetric receive buffers
-    // optimize memory usages later
+    // TODO: optimize memory usages
     size_t dispatch_recv_data_buffer_bytes = num_experts *
                                              num_max_dispatch_tokens_per_rank *
                                              num_bytes_per_dispatch_msg;
@@ -210,13 +215,9 @@ struct LowLatencyLayout {
 
     // Symmetric signaling buffers
     size_t dispatch_recv_count_buffer_bytes = num_experts * sizeof(int);
-    size_t dispatch_recv_atomic_token_counter_bytes =
-        num_local_experts * sizeof(int);
     size_t combine_recv_flag_buffer_bytes = dispatch_recv_count_buffer_bytes;
-    size_t signaling_buffer_bytes =
-        std::max(dispatch_recv_count_buffer_bytes +
-                     dispatch_recv_atomic_token_counter_bytes,
-                 combine_recv_flag_buffer_bytes);
+    size_t signaling_buffer_bytes = std::max(dispatch_recv_count_buffer_bytes,
+                                             combine_recv_flag_buffer_bytes);
     total_bytes += signaling_buffer_bytes * 2;
 
     // Assign pointers
@@ -230,10 +231,6 @@ struct LowLatencyLayout {
           advance<int*>(rdma_buffer,
                         send_buffer_bytes * 2 + recv_buffer_bytes * 2 +
                             signaling_buffer_bytes * i),
-          advance<int*>(rdma_buffer,
-                        send_buffer_bytes * 2 + recv_buffer_bytes * 2 +
-                            signaling_buffer_bytes * i +
-                            dispatch_recv_count_buffer_bytes),
           advance(rdma_buffer, send_buffer_bytes * i),
           advance(rdma_buffer, send_buffer_bytes * 2 + recv_buffer_bytes * i),
           advance<int*>(rdma_buffer,

@@ -1657,12 +1657,9 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
       paddle::experimental::empty({num_local_experts, num_ranks},
                                   phi::DataType::INT64,
                                   phi::GPUPlace(device_id)));
-  auto packed_recv_count = ConvertPaddleTensorToDetailTensor(
-      paddle::from_blob(buffer.dispatch_rdma_atomic_token_counter,
-                        {num_local_experts},
-                        phi::DataType::INT32,
-                        phi::DataLayout::NCHW,
-                        phi::GPUPlace(device_id)));
+  auto packed_recv_count =
+      ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
+          {num_local_experts}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
   // Allocate column-majored scales
   EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
@@ -1686,6 +1683,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
                            packed_recv_x_scales.data_ptr<float>(),
                            packed_recv_src_info.data_ptr<int>(),
                            packed_recv_layout_range.data_ptr<int64_t>(),
+                           packed_recv_count.data_ptr<int>(),
                            buffer.dispatch_rdma_recv_data_buffer,
                            buffer.dispatch_rdma_recv_count_buffer,
                            buffer.dispatch_rdma_send_buffer,
