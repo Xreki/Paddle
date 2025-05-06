@@ -74,7 +74,9 @@ void ApVariadicKernel(const Context& dev_ctx,
                       const std::string& infer_meta_lambda,
                       const std::string& kernel_dispatch_lambda,
                       const std::string& kernel_dispatch_const_data_lambda,
-                      std::vector<DenseTensor*> outs) {
+                      std::vector<DenseTensor*> outs);
+
+ {
   PADDLE_ENFORCE_GT(
       xs.size(),
       0,
