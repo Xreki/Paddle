@@ -32,6 +32,7 @@ adt::Result<adt::Ok> ApVariadicKernel(
     const DeviceCtx& device_ctx,
     const std::vector<const phi::DenseTensor*>& xs,
     int num_outputs,
+    const std::string& function_name,
     const std::string& kernel_define_lambda,
     const std::string& infer_meta_lambda,
     const std::string& kernel_dispatch_lambda,

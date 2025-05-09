@@ -275,6 +275,7 @@ adt::Result<adt::Ok> ApVariadicKernel(
     const DeviceCtx& device_ctx,
     const std::vector<const phi::DenseTensor*>& xs,
     int num_outputs,
+    const std::string& function_name,
     const std::string& code_module_lambda,
     const std::string& infer_meta_lambda,
     const std::string& kernel_dispatch_lambda,
@@ -292,7 +293,8 @@ adt::Result<adt::Ok> ApVariadicKernel(
   ADT_LET_CONST_REF(inputs, MakeConstTensors(xs, kernel_dispatch_const_data));
   ADT_LET_CONST_REF(outputs,
                     MakeMutableTensors(outs, kernel_dispatch_const_data));
-  DispatchRawCtx<Val> raw_ctx{device_ctx, inputs, outputs, rt_module};
+  DispatchRawCtx<Val> raw_ctx{
+      device_ctx, function_name, inputs, outputs, rt_module};
   DispatchCtx<Val> dispatch_ctx{raw_ctx, kernel_dispatch_const_data};
   ADT_LET_CONST_REF(lambda, MakeOrGetCoreExpr(kernel_dispatch_lambda));
   ADT_RETURN_IF_ERR(helper.InterpretKernelDispatcher(lambda, dispatch_ctx));

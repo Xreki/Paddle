@@ -152,6 +152,7 @@ void ApFacadeInferMeta(
 
 void ApVariadicInferMeta(const std::vector<const MetaTensor*>& xs,
                          int num_outputs,
+                         const std::string& function_name,
                          const std::string& code_module_lambda,
                          const std::string& infer_meta_lambda,
                          const std::string& kernel_dispatch_lambda,

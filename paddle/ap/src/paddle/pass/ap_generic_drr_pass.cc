@@ -819,6 +819,8 @@ struct ApRewriter {
     ADT_LET_CONST_REF(
         code_module_anf_expr,
         ConvertApKernelModuleToAnfExpr(code_gen_result->code_module));
+    ADT_LET_CONST_REF(function_name,
+                      GetFuncDeclareId(code_gen_result->code_module));
     const auto& code_gen_lambda_str = code_module_anf_expr.DumpToJsonString();
     const auto& kernel_dispatch_func = code_gen_result->kernel_dispatch_func;
     const auto& kernel_dispatch_const_data =
@@ -838,6 +840,7 @@ struct ApRewriter {
         MakeApPatternFusionOp(rewriter,
                               combined_value,
                               num_outputs,
+                              function_name,
                               code_gen_lambda_str,
                               infer_meta_lambda_str,
                               kernel_dispatch_lambda_str,
@@ -1150,6 +1153,12 @@ struct ApRewriter {
     return ap::code_module::ModuleToAxprHelper{}.ConvertModuleToAnfExpr(m);
   }
 
+  adt::Result<std::string> GetFuncDeclareId(const CodeModule& m) const {
+    const auto& func_declares = m->func_declares;
+    ADT_CHECK(func_declares->size() == 1);
+    return func_declares->at(0)->func_id;
+  }
+
   adt::Result<std::string> GetKernelDispatchLambdaStr(
       const ap::axpr::Function<ap::axpr::SerializableValue>&
           kernel_dispatch_func) const {
@@ -1162,6 +1171,7 @@ struct ApRewriter {
       pir::PatternRewriter* rewriter,
       pir::Value input,
       std::size_t num_outputs,
+      const std::string& function_name,
       const std::string& code_gen_lambda_str,
       const std::string& infer_meta_lambda_str,
       const std::string& kernel_dispatch_lambda_str,
@@ -1169,6 +1179,7 @@ struct ApRewriter {
     auto ap_variadic = rewriter->Build<paddle::dialect::ApVariadicOp>(
         input,
         num_outputs,
+        function_name,
         code_gen_lambda_str,
         infer_meta_lambda_str,
         kernel_dispatch_lambda_str,

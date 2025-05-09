@@ -40,6 +40,7 @@ struct RtModule : public RtModuleImpl {
 template <typename ValueT>
 struct DispatchRawCtxImpl {
   DeviceCtx device_ctx;
+  std::string function_name;
   adt::List<ValueT> inputs;
   adt::List<ValueT> outputs;
   RtModule rt_module;

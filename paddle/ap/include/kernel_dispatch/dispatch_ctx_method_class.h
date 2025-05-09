@@ -51,6 +51,12 @@ Result<Val> DispatchCtxGetOutputs(const DispatchCtx<Val>& ctx,
 }
 
 template <typename Val>
+Result<Val> DispatchCtxGetFunctionName(const DispatchCtx<Val>& ctx,
+                                       const std::string& attr_name) {
+  return ctx->raw_ctx->function_name;
+}
+
+template <typename Val>
 Result<Val> DispatchCtxGetDeviceCtx(const DispatchCtx<Val>& ctx,
                                     const std::string& attr_name) {
   return GetDeviceCtxClass().New(ctx->raw_ctx->device_ctx);
@@ -110,6 +116,7 @@ Result<Val> DispatchCtxGetAttr(const DispatchCtx<Val>& ctx,
        &DispatchCtxType<Val, ap::axpr::DataValue>},
       {"inputs", &DispatchCtxGetInputs<Val>},
       {"outputs", &DispatchCtxGetOutputs<Val>},
+      {"function_name", &DispatchCtxGetFunctionName},
       {"device_ctx", &DispatchCtxGetDeviceCtx},
   };
   const auto& iter = map.find(name);
