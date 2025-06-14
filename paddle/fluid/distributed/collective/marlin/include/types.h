@@ -15,8 +15,8 @@
 #pragma once
 
 #include "glog/logging.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/CUDAStream.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/ScalarType.h"
+#include "paddle/fluid/distributed/collective/marlin/include/CUDAStream.h"
+#include "paddle/fluid/distributed/collective/marlin/include/ScalarType.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/memory/malloc.h"
@@ -41,16 +41,14 @@ struct Tensor {
 
   decltype(auto) place() const { return raw_tensor_.place(); }
 
-  int64_t dim() const { return raw_tensor_.dims().size(); }
+  decltype(auto) numel() const { return raw_tensor_.numel(); }
 
-  int64_t numel() const { return raw_tensor_.numel(); }
+  int64_t dim() const { return raw_tensor_.dims().size(); }
 
   bool is_contiguous() const { return true; }
 
-  int64_t size(int64_t d) const {
-    int64_t idx = (d >= 0) ? d : raw_tensor_.dims().size() + d;
-    return raw_tensor_.dims().at(idx);
-  }
+  int64_t size(int64_t d) const { return raw_tensor_.dims().at(d); }
+  
 
   template <typename T>
   T *data_ptr() const {
@@ -66,16 +64,20 @@ struct Tensor {
 
   void *data_ptr() { return raw_tensor_.data(); }
 
-  void record_stream(const cudaStream_t &stream) const {
-    paddle::memory::RecordStream(
-        std::dynamic_pointer_cast<phi::DenseTensor>(raw_tensor_.impl())
-            ->Holder(),
-        stream);
+  // void record_stream(const cudaStream_t &stream) const {
+  //   paddle::memory::RecordStream(
+  //       std::dynamic_pointer_cast<phi::DenseTensor>(raw_tensor_.impl())
+  //           ->Holder(),
+  //       stream);
+  // }
+  bool is_gpu() const {
+    return raw_tensor_.place().GetType() == phi::AllocationType::GPU;
   }
 
-  deep_ep::detail::ScalarType scalar_type() const {
-    return raw_tensor_.dtype();
-  }
+
+  // deep_ep::detail::ScalarType scalar_type() const {
+  //   return raw_tensor_.dtype();
+  // }
 
   int64_t element_size() const { return phi::SizeOf(raw_tensor_.dtype()); }
 };

@@ -8,10 +8,16 @@ if(WITH_DISTRIBUTE
   set(DEEPEP_LIB deep_ep)
 endif()
 
+if(WITH_GPU)
+  message(STATUS "Enable Marlin Moe wint4")
+  add_subdirectory(marlin)
+  set(MARLIN_LIB marlin)
+endif()
+
 cc_library(
   process_group
   SRCS process_group.cc
-  DEPS phi common xxhash ${DEEPEP_LIB})
+  DEPS phi common xxhash ${DEEPEP_LIB} ${MARLIN_LIB})
 
 cc_library(
   eager_reducer
